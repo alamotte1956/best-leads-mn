@@ -45,12 +45,13 @@ init_db()
 STYLE = """
 <style>
 body{font-family:system-ui,sans-serif;margin:0;background:#f8fafc;color:#1e293b}
-.container{max-width:800px;margin:32px auto;padding:0 20px}
+.container{max-width:860px;margin:32px auto;padding:0 20px}
 .card{background:#fff;border-radius:12px;padding:24px;margin:16px 0;box-shadow:0 2px 12px rgba(0,0,0,.06)}
 input,select,textarea{width:100%;padding:10px;margin:6px 0 14px;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box}
 button{background:#0ea5e9;color:#fff;border:none;padding:12px 20px;border-radius:6px;cursor:pointer;font-weight:600}
 a{color:#0ea5e9;text-decoration:none}
 .red{color:#dc2626;font-weight:600}
+.nav{margin:16px 0}
 </style>
 """
 
@@ -63,11 +64,13 @@ def home():
       <p>Exclusive Twin Cities Leads — One Contractor Per Job</p>
       <p><strong>No shared leads.</strong> Contact information is hidden until you accept the lead.</p>
       <p class="red">Leads expire after 24 hours if not accepted.</p>
-      <p>
+      <div class="nav">
         <a href="/available_leads">View Available Leads</a> ·
         <a href="/signup">Contractor Sign Up</a> ·
-        <a href="/contractor_login">Contractor Login</a>
-      </p>
+        <a href="/contractor_login">Contractor Login</a> ·
+        <a href="/privacy">Privacy</a> ·
+        <a href="/terms">Terms</a>
+      </div>
     </div>
     """
 
@@ -81,20 +84,22 @@ def signup():
                 INSERT INTO contractors (company, contact, phone, email, services, created_at)
                 VALUES (:company, :contact, :phone, :email, :services, :created_at)
             """, d)
-        return f"{STYLE}<div class='container'><h2>Application received.</h2><p>We will review and activate your account.</p><a href='/'>Home</a></div>"
+        return f"{STYLE}<div class='container'><div class='card'><h2>Application received.</h2><p>We will review and activate your account. Exclusive leads only. No shared leads.</p><a href='/'>Home</a></div></div>"
     return f"""
     {STYLE}
     <div class="container">
       <h2>Contractor Sign Up</h2>
-      <form method="post">
-        <label>Company</label><input name="company" required>
-        <label>Contact Name</label><input name="contact" required>
-        <label>Phone</label><input name="phone" required>
-        <label>Email</label><input name="email" type="email" required>
-        <label>Services</label><input name="services" required>
-        <p>By submitting you agree to the terms of Restoration Contractors MN. Exclusive leads only. No shared leads.</p>
-        <button type="submit">Submit Application</button>
-      </form>
+      <div class="card">
+        <form method="post">
+          <label>Company</label><input name="company" required>
+          <label>Contact Name</label><input name="contact" required>
+          <label>Phone</label><input name="phone" required>
+          <label>Email</label><input name="email" type="email" required>
+          <label>Services</label><input name="services" required>
+          <p>By submitting you agree to the terms of Restoration Contractors MN (Albert R LaMotte dba). Exclusive leads only. No shared leads. Subject to Minnesota law.</p>
+          <button type="submit">Submit Application</button>
+        </form>
+      </div>
     </div>
     """
 
@@ -132,22 +137,24 @@ def contractor_login():
     {STYLE}
     <div class="container">
       <h2>Contractor Login</h2>
-      <form method="post">
-        <label>Email</label><input name="email" type="email" required>
-        <label>Password</label><input name="password" type="password">
-        <button type="submit">Login</button>
-      </form>
+      <div class="card">
+        <form method="post">
+          <label>Email</label><input name="email" type="email" required>
+          <label>Password</label><input name="password" type="password">
+          <button type="submit">Login</button>
+        </form>
+      </div>
       <p><a href="/">Home</a></p>
     </div>
     """
 
 @app.route("/privacy")
 def privacy():
-    return f"{STYLE}<div class='container'><h1>Privacy Policy</h1><p>Contractor data is used for account management and lead matching only. No shared leads.</p><a href='/'>Home</a></div>"
+    return f"{STYLE}<div class='container'><div class='card'><h1>Privacy Policy</h1><p>Contractor data is used for account management and exclusive lead matching only. No shared leads. We do not sell contractor contact information.</p><a href='/'>Home</a></div></div>"
 
 @app.route("/terms")
 def terms():
-    return f"{STYLE}<div class='container'><h1>Terms</h1><p>Exclusive lead service. You are charged only when you accept a lead. Governed by Minnesota law. Albert R LaMotte dba Restoration Contractors MN.</p><a href='/'>Home</a></div>"
+    return f"{STYLE}<div class='container'><div class='card'><h1>Terms</h1><p>Exclusive lead service operated by Albert R LaMotte dba Restoration Contractors MN. You are charged only when you accept a lead. Governed by Minnesota law. No shared leads.</p><a href='/'>Home</a></div></div>"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
