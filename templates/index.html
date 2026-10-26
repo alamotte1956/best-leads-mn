@@ -1,53 +1,104 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang='en'>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restoration Contractors MN - Exclusive Lead Matching</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Restoration Contractors MN - Find Trusted Local Pros</title>
+    <script src='https://cdn.tailwindcss.com'></script>
 </head>
-<body class="bg-gray-100 font-sans leading-normal tracking-normal">
-    <div class="max-w-2xl mx-auto px-4 py-12">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">Restoration Contractors MN</h1>
-            <div class="space-x-4">
-                <a href="/contractors/signup" class="text-blue-600 font-semibold hover:underline">Contractor Login / Signup</a>
-                <a href="/admin" class="text-gray-600 hover:underline">Admin</a>
+<body class='bg-slate-50 font-sans'>
+    <!-- Header -->
+    <header class='bg-white shadow-sm sticky top-0 z-50'>
+        <div class='max-w-7xl mx-auto px-4 py-4 flex justify-between items-center'>
+            <div class='flex items-center space-x-2'>
+                <span class='text-2xl font-black text-amber-600'>RestorationMN</span>
+                <span class='text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-semibold'>Angi Verified</span>
+            </div>
+            <nav class='flex items-center space-x-6'>
+                <a href='/' class='text-gray-600 hover:text-amber-600 font-medium'>Home</a>
+                <a href='/contractors/signup' class='text-gray-600 hover:text-amber-600 font-medium'>For Contractors</a>
+                <a href='/admin' class='text-gray-600 hover:text-amber-600 font-medium'>Admin</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class='bg-gradient-to-r from-slate-900 to-slate-800 text-white py-20 px-4'>
+        <div class='max-w-4xl mx-auto text-center'>
+            <h1 class='text-4xl md:text-5xl font-extrabold mb-6 tracking-tight'>
+                Compare Top-Rated Local Restoration Pros in Minnesota
+            </h1>
+            <p class='text-lg text-slate-300 mb-10'>
+                Water damage, roofing, and storm repair experts ready to help. Verified licenses, upfront quotes, and instant matches.
+            </p>
+
+            <!-- Lead Intake Form Card -->
+            <div class='bg-white text-gray-900 rounded-xl shadow-2xl p-6 md:p-8 text-left'>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class='mb-6 p-4 rounded-lg bg-green-50 border border-green-200 text-green-800 font-medium'>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method='POST' class='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                    <div>
+                        <label class='block text-sm font-semibold text-gray-700 mb-2'>Service Needed</label>
+                        <select name='service_type' required class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500'>
+                            <option value='Water Damage Restoration'>Water Damage & Mitigation</option>
+                            <option value='Roofing & Storm Repair'>Roofing & Storm Repair</option>
+                            <option value='Mold Remediation'>Mold Remediation</option>
+                            <option value='Fire & Smoke Restoration'>Fire & Smoke Restoration</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class='block text-sm font-semibold text-gray-700 mb-2'>Minnesota ZIP Code</label>
+                        <input type='text' name='zip_code' required placeholder='e.g., 55101, 55401, 55044' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500'>
+                    </div>
+
+                    <div>
+                        <label class='block text-sm font-semibold text-gray-700 mb-2'>Full Name</label>
+                        <input type='text' name='name' required placeholder='John Doe' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500'>
+                    </div>
+
+                    <div>
+                        <label class='block text-sm font-semibold text-gray-700 mb-2'>Phone Number</label>
+                        <input type='tel' name='phone' required placeholder='(612) 555-0199' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500'>
+                    </div>
+
+                    <div class='md:col-span-2'>
+                        <label class='block text-sm font-semibold text-gray-700 mb-2'>Email Address</label>
+                        <input type='email' name='email' required placeholder='john@example.com' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500'>
+                    </div>
+
+                    <div class='md:col-span-2'>
+                        <button type='submit' class='w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition duration-200 text-lg'>
+                            Get Matched with Local Pros Instantly
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
-        <div class="bg-white shadow-md rounded-lg p-8">
-            <h2 class="text-xl font-semibold mb-2 text-gray-700">Request a Verified Restoration Contractor</h2>
-            <form method="POST" action="/submit-lead" class="space-y-4 mt-4">
-                <div>
-                    <label class="block text-gray-700 font-medium mb-1">Your Name</label>
-                    <input type="text" name="homeowner_name" required class="w-full px-3 py-2 border rounded-lg">
-                </div>
-                <div>
-                    <label class="block text-gray-700 font-medium mb-1">Phone Number</label>
-                    <input type="text" name="phone" required class="w-full px-3 py-2 border rounded-lg">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-1">City</label>
-                        <input type="text" name="city" required class="w-full px-3 py-2 border rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-1">ZIP Code</label>
-                        <input type="text" name="zip_code" required class="w-full px-3 py-2 border rounded-lg">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-gray-700 font-medium mb-1">Damage Type</label>
-                    <select name="damage_type" class="w-full px-3 py-2 border rounded-lg">
-                        <option value="Water Damage">Water Damage</option>
-                        <option value="Storm / Hail Damage">Storm / Hail Damage</option>
-                        <option value="Fire / Smoke Damage">Fire / Smoke Damage</option>
-                        <option value="Mold Remediation">Mold Remediation</option>
-                    </select>
-                </div>
-                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">Get Matched Exclusively</button>
-            </form>
+    </section>
+
+    <!-- Value Prop Footer / Trust Badges -->
+    <section class='py-16 max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8 text-center'>
+        <div class='bg-white p-6 rounded-xl shadow-sm border border-gray-100'>
+            <div class='text-amber-600 font-bold text-xl mb-2'>100% Verified Pros</div>
+            <p class='text-gray-600 text-sm'>All Minnesota contractors undergo license and insurance status checks.</p>
         </div>
-    </div>
+        <div class='bg-white p-6 rounded-xl shadow-sm border border-gray-100'>
+            <div class='text-amber-600 font-bold text-xl mb-2'>Instant Match & Dispatch</div>
+            <p class='text-gray-600 text-sm'>Your project details are instantly routed to qualified local specialists in your ZIP code.</p>
+        </div>
+        <div class='bg-white p-6 rounded-xl shadow-sm border border-gray-100'>
+            <div class='text-amber-600 font-bold text-xl mb-2'>Compare Estimates</div>
+            <p class='text-gray-600 text-sm'>Receive quotes and compare top-rated local restoration experts side-by-side.</p>
+        </div>
+    </section>
 </body>
 </html>
