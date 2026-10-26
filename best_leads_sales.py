@@ -1,7 +1,7 @@
-from flask import Flask, request, render_template_string, redirect, url_for, session
-import sqlite3
-import os
 from datetime import datetime, timedelta
+import os
+import sqlite3
+from flask import Flask, redirect, render_template_string, request, session, url_for
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-key-change-me")
@@ -25,6 +25,7 @@ STYLE = """
   .services input { width: auto; }
   footer { text-align: center; padding: 30px; color: #64748b; font-size: 14px; }
   .note { font-size: 14px; color: #64748b; }
+  .inactive { opacity: 0.7; background: #f1f5f9; }
 </style>
 """
 
@@ -43,6 +44,8 @@ def init_db():
             phone TEXT,
             email TEXT,
             services TEXT,
+            service_area TEXT,
+            exclusive_only TEXT,
             created_at TEXT,
             active INTEGER DEFAULT 0
         );
@@ -98,11 +101,13 @@ def signup():
         d = request.form.to_dict()
         services = request.form.get("services_joined") or request.form.get("services") or ""
         d["services"] = services
+        d["service_area"] = request.form.get("service_area", "")
+        d["exclusive_only"] = request.form.get("exclusive_only", "No")
         d["created_at"] = datetime.utcnow().isoformat()
         with get_db() as db:
             db.execute("""
-                INSERT INTO contractors (company, contact, phone, email, services, created_at)
-                VALUES (:company, :contact, :phone, :email, :services, :created_at)
+                INSERT INTO contractors (company, contact, phone, email, services, service_area, exclusive_only, created_at)
+                VALUES (:company, :contact, :phone, :email, :services, :service_area, :exclusive_only, :created_at)
             """, d)
         return render_template_string(f"""{STYLE}<div class="container"><div class="card"><h2>Application Received</h2><p>Thank you. We will review and activate your account for exclusive leads.</p><a href="/" class="btn">Return Home</a></div></div>""")
 
@@ -223,6 +228,8 @@ def contractors():
           <strong>{r["company"]}</strong> — {r["contact"]}<br>
           {r["phone"]} · {r["email"]}<br>
           Services: {r["services"] or "—"}<br>
+          Service Area: {r["service_area"] or "—"}<br>
+          Exclusive Only: {r["exclusive_only"] or "No"}<br>
           Status: {status}
           <form method="post" action="/toggle_contractor" style="margin-top:10px;">
             <input type="hidden" name="id" value="{r["id"]}">
