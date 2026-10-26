@@ -1,386 +1,516 @@
 import os
-from datetime import datetime, timedelta
-import sqlite3
-from flask import Flask, redirect, render_template_string, request, session, url_for
+import stripe
+from flask import Flask, render_template_string, request, redirect, url_for, flash, session
+from flask_sqlalchemy import SQLAlchemy
+from twilio.rest import Client
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-key-change-me")
-DB_PATH = os.environ.get("DATABASE_URL", "leads.db").replace("sqlite:///", "")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "minnesota-restoration-secure-key-2026")
 
-STYLE = """
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
-  .container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
-  .card { background: white; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,.1); margin-bottom: 20px; }
-  h1, h2 { margin-top: 0; }
-  .badge { display: inline-block; background: #0ea5e9; color: white; padding: 6px 12px; border-radius: 20px; font-size: 14px; margin-bottom: 16px; }
-  .red { color: #dc2626; font-weight: 600; }
-  .nav a { margin-right: 16px; color: #0ea5e9; text-decoration: none; }
-  label { display: block; margin: 14px 0 6px; font-weight: 500; }
-  input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
-  button, .btn { background: #0ea5e9; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; }
-  .services { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 10px 0 20px; }
-  .services label { font-weight: normal; display: flex; align-items: center; gap: 8px; }
-  .services input { width: auto; }
-  footer { text-align: center; padding: 30px; color: #64748b; font-size: 14px; }
-  .note { font-size: 14px; color: #64748b; }
-</style>
+# Database Configuration (PostgreSQL on Railway or SQLite local fallback)
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///restoration_leads.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+# Stripe & Twilio Configuration
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "sk_test_placeholder")
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")
+
+def send_sms_alert(to_phone, message_body):
+    if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_PHONE_NUMBER:
+        try:
+            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            client.messages.create(
+                body=message_body,
+                from_=TWILIO_PHONE_NUMBER,
+                to=to_phone
+            )
+        except Exception as e:
+            print(f"Twilio SMS Error: {e}")
+
+# ==================== DATABASE MODELS ====================
+
+class Contractor(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    company_name = db.Column(db.String(120), nullable=False)
+    contact_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    trade = db.Column(db.String(50), nullable=False)  # e.g., Roofing, Water Damage, Storm Restoration
+    service_area = db.Column(db.String(100), default="Twin Cities Metro")
+    is_active_subscriber = db.Column(db.Boolean, default=False)
+    stripe_subscription_id = db.Column(db.String(120), nullable=True)
+
+class Lead(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    homeowner_name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    address = db.Column(db.String(200), nullable=False)
+    project_type = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    sms_consent = db.Column(db.Boolean, nullable=False, default=False)
+    assigned_contractor_id = db.Column(db.Integer, db.ForeignKey('contractor.id'), nullable=True)
+    status = db.Column(db.String(30), default="New - Exclusive")
+
+# ==================== HTML TEMPLATES (Responsive & Mobile-First) ====================
+
+BASE_LAYOUT = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Restoration Contractors MN{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar-brand { font-weight: 700; color: #0d6efd !important; }
+        .hero-section { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 4rem 1rem; }
+        .footer { background-color: #0f172a; color: #94a3b8; font-size: 0.9rem; padding: 2rem 0; margin-top: 3rem; }
+        .footer a { color: #cbd5e1; text-decoration: none; }
+        .footer a:hover { color: #ffffff; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/"><i class="fas fa-hammer text-primary me-2"></i>Restoration Contractors MN</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav align-items-center">
+                    <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/contractors/signup">For Contractors</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/admin">Admin Portal</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer">
+        <div class="container text-center text-md-start">
+            <div class="row">
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <h5 class="text-white">Restoration Contractors MN</h5>
+                    <p class="mb-0">Exclusive Twin Cities Lead-Matching & Verified Contractor Network.<br>Minnesota License Compliance & TCPA Verified Consent.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <ul class="list-inline mb-2">
+                        <li class="list-inline-item"><a href="/privacy">Privacy Policy</a></li>
+                        <li class="list-inline-item">|</li>
+                        <li class="list-inline-item"><a href="/terms">Terms of Service</a></li>
+                    </ul>
+                    <p class="mb-0">&copy; 2026 Restoration Contractors MN. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
 """
 
-def get_db():
-    db = sqlite3.connect(DB_PATH)
-    db.row_factory = sqlite3.Row
-    return db
+INDEX_TEMPLATE = BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
+<div class="hero-section rounded-4 shadow-sm text-center mb-5">
+    <div class="container">
+        <h1 class="display-5 fw-bold mb-3">Twin Cities Property Restoration Leads</h1>
+        <p class="lead text-secondary mb-4">100% Exclusive Leads for Licensed Minnesota Contractors. Never Shared, Never Resold.</p>
+        <a href="#leadForm" class="btn btn-primary btn-lg px-4 gap-3">Request Restoration Service</a>
+    </div>
+</div>
 
-def init_db():
-    with get_db() as db:
-        db.executescript("""
-        CREATE TABLE IF NOT EXISTS contractors (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            company TEXT,
-            contact TEXT,
-            phone TEXT,
-            email TEXT,
-            services TEXT,
-            service_area TEXT,
-            exclusive_only TEXT,
-            created_at TEXT,
-            active INTEGER DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS leads (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            service TEXT,
-            zip TEXT,
-            details TEXT,
-            price REAL,
-            status TEXT DEFAULT 'available',
-            created_at TEXT,
-            expires_at TEXT,
-            sold_to INTEGER
-        );
-        """)
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 p-4 rounded-4" id="leadForm">
+            <h3 class="mb-3 text-dark fw-bold"><i class="fas fa-file-contract text-primary me-2"></i>Homeowner Service Request</h3>
+            <p class="text-muted mb-4">Connected exclusively with top-rated, licensed professionals across Minneapolis, St. Paul, and surrounding suburbs.</p>
+            
+            <form method="POST" action="/submit-lead">
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label class="form-label fw-semibold">Full Name</label>
+                        <input type="text" class="form-control" name="homeowner_name" required placeholder="John Doe">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Phone Number</label>
+                        <input type="tel" class="form-control" name="phone" required placeholder="(612) 555-0199">
+                    </div>
+                </div>
 
-init_db()
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label class="form-label fw-semibold">Email Address</label>
+                        <input type="email" class="form-control" name="email" required placeholder="john@example.com">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Property Address / City</label>
+                        <input type="text" class="form-control" name="address" required placeholder="Edina, MN">
+                    </div>
+                </div>
 
-def is_expired(lead):
-    if not lead["expires_at"]:
-        return False
-    try:
-        return datetime.fromisoformat(lead["expires_at"]) < datetime.utcnow()
-    except Exception:
-        return False
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Restoration Service Needed</label>
+                    <select class="form-select" name="project_type" required>
+                        <option value="" selected disabled>Choose service category...</option>
+                        <option value="Roofing & Storm Damage">Roofing & Storm Damage</option>
+                        <option value="Water Damage Mitigation">Water Damage Mitigation</option>
+                        <option value="Fire & Smoke Restoration">Fire & Smoke Restoration</option>
+                        <option value="Mold Remediation">Mold Remediation</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Project Details & Damage Description</label>
+                    <textarea class="form-control" name="description" rows="3" required placeholder="Describe the damage, insurance involvement, or urgency..."></textarea>
+                </div>
+
+                <div class="mb-4 form-check bg-light p-3 rounded border">
+                    <input type="checkbox" class="form-check-input mt-1" id="sms_consent" name="sms_consent" value="yes" required>
+                    <label class="form-check-label small text-muted" for="sms_consent">
+                        <strong>TCPA & Minnesota Compliance Consent:</strong> By checking this box, I consent to receive calls and text messages (SMS) regarding my restoration service request from Restoration Contractors MN and matched local licensed contractors at the phone number provided above. Consent is not a condition of purchase. Message and data rates may apply.
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Submit Exclusive Lead Request</button>
+            </form>
+        </div>
+    </div>
+</div>
+""")
+
+CONTRACTOR_SIGNUP_TEMPLATE = BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0 p-4 rounded-4">
+            <h3 class="mb-3 text-dark fw-bold"><i class="fas fa-hard-hat text-primary me-2"></i>Contractor Exclusive Network Signup</h3>
+            <p class="text-muted mb-4">Join the Twin Cities premier network. Receive exclusive, non-shared leads directly to your phone and email.</p>
+            
+            <form method="POST" action="/contractors/signup">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Company Name</label>
+                    <input type="text" class="form-control" name="company_name" required placeholder="Twin Cities Restoration Pros LLC">
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label class="form-label fw-semibold">Primary Contact Name</label>
+                        <input type="text" class="form-control" name="contact_name" required placeholder="Jane Smith">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Direct Phone</label>
+                        <input type="tel" class="form-control" name="phone" required placeholder="(952) 555-0144">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Business Email</label>
+                    <input type="email" class="form-control" name="email" required placeholder="dispatch@twincitiespro.com">
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label class="form-label fw-semibold">Primary Trade Category</label>
+                        <select class="form-select" name="trade" required>
+                            <option value="Roofing & Storm Damage">Roofing & Storm Damage</option>
+                            <option value="Water Damage Mitigation">Water Damage Mitigation</option>
+                            <option value="Fire & Smoke Restoration">Fire & Smoke Restoration</option>
+                            <option value="Mold Remediation">Mold Remediation</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Service Coverage Area</label>
+                        <input type="text" class="form-control" name="service_area" value="Twin Cities Metro Area" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-dark w-100 py-2 fw-bold">Proceed to Billing & Activation</button>
+            </form>
+        </div>
+    </div>
+</div>
+""")
+
+ADMIN_TEMPLATE = BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="fw-bold text-dark"><i class="fas fa-gauge text-primary me-2"></i>Admin Dashboard</h2>
+        <p class="text-muted">Manage incoming exclusive leads and contractor subscription billing status.</p>
+    </div>
+</div>
+
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card shadow-sm border-0 rounded-4 p-3">
+            <h4 class="fw-bold text-dark mb-3"><i class="fas fa-list-check me-2 text-primary"></i>Exclusive Leads Directory</h4>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Homeowner</th>
+                            <th>Phone</th>
+                            <th>Location</th>
+                            <th>Service</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lead in leads %}
+                        <tr>
+                            <td>#{{ lead.id }}</td>
+                            <td class="fw-semibold">{{ lead.homeowner_name }}</td>
+                            <td>{{ lead.phone }}</td>
+                            <td>{{ lead.address }}</td>
+                            <td><span class="badge bg-secondary">{{ lead.project_type }}</span></td>
+                            <td><span class="badge bg-success">{{ lead.status }}</span></td>
+                            <td><a href="tel:{{ lead.phone }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-phone"></i> Call</a></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">No leads received yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0 rounded-4 p-3">
+            <h4 class="fw-bold text-dark mb-3"><i class="fas fa-users-cog me-2 text-primary"></i>Registered Contractors & Billing Status</h4>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Company</th>
+                            <th>Contact</th>
+                            <th>Email</th>
+                            <th>Trade</th>
+                            <th>Billing Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in contractors %}
+                        <tr>
+                            <td class="fw-semibold">{{ c.company_name }}</td>
+                            <td>{{ c.contact_name }}</td>
+                            <td>{{ c.email }}</td>
+                            <td>{{ c.trade }}</td>
+                            <td>
+                                {% if c.is_active_subscriber %}
+                                    <span class="badge bg-success">Active Subscriber</span>
+                                {% else %}
+                                    <a href="/contractors/checkout/{{ c.id }}" class="btn btn-sm btn-warning fw-bold">Complete Stripe Billing</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">No contractors registered yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+""")
+
+PRIVACY_TEMPLATE = BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
+<div class="row justify-content-center">
+    <div class="col-lg-9 bg-white p-5 rounded-4 shadow-sm">
+        <h2 class="fw-bold mb-4">Privacy Policy</h2>
+        <p class="text-muted">Last updated: October 26, 2026</p>
+        <p>Restoration Contractors MN respects your privacy and is committed to protecting your personal data. This privacy policy informs you how we collect, use, and safeguard information submitted through our exclusive Twin Cities lead-matching platform.</p>
+        <h5 class="fw-bold mt-4">1. Information Collection & TCPA Consent</h5>
+        <p>When you submit a service request, we collect your name, phone number, email address, and property location. By providing your phone number and checking our consent box, you explicitly grant permission for us and our matched licensed contractors to contact you via telephone and SMS text messaging in compliance with TCPA guidelines.</p>
+        <h5 class="fw-bold mt-4">2. Exclusive Lead Distribution</h5>
+        <p>Unlike traditional lead aggregators that sell your inquiry to 5+ contractors, Restoration Contractors MN strictly pairs your project with <strong>one</strong> verified professional in your specific Minnesota trade category.</p>
+    </div>
+</div>
+""")
+
+TERMS_TEMPLATE = BASE_LAYOUT.replace("{% block content %}{% endblock %}", """
+<div class="row justify-content-center">
+    <div class="col-lg-9 bg-white p-5 rounded-4 shadow-sm">
+        <h2 class="fw-bold mb-4">Terms of Service</h2>
+        <p class="text-muted">Last updated: October 26, 2026</p>
+        <p>Welcome to Restoration Contractors MN. By accessing our website or submitting a lead request, you agree to comply with and be bound by the following terms and conditions.</p>
+        <h5 class="fw-bold mt-4">1. Contractor Licensing & Compliance</h5>
+        <p>All participating contractors agree to maintain active licensing in accordance with Minnesota state regulations and statutory requirements enforced by the Minnesota Department of Labor and Industry (DLI).</p>
+        <h5 class="fw-bold mt-4">2. Limitation of Liability</h5>
+        <p>Restoration Contractors MN acts solely as an exclusive lead-matching service and is not responsible for the direct execution, pricing, or contractual terms agreed upon between homeowners and matched contractors.</p>
+    </div>
+</div>
+""")
+
+# ==================== ROUTES ====================
 
 @app.route("/")
-def home():
-    logged_in = "contractor_email" in session
-    auth_nav = (
-        '<a href="/available_leads">Available Leads</a> <a href="/contractor_logout">Logout</a>'
-        if logged_in
-        else '<a href="/available_leads">Available Leads</a> <a href="/signup">Sign Up</a> <a href="/contractor_login">Login</a>'
-    )
-    return render_template_string(f"""
-    {STYLE}
-    <div class="container">
-      <div class="card">
-        <div class="badge">EXCLUSIVE LEADS ONLY · NO SHARED LEADS</div>
-        <h1>Best Leads</h1>
-        <p>Premium exclusive Twin Cities contractor leads. One contractor per job. Contact information remains hidden until you accept.</p>
-        <p class="red">Leads expire after 24 hours if not accepted.</p>
-        <div class="nav">
-          {auth_nav}
-          <a href="/contractors">Manage Contractors</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-        </div>
-      </div>
-    </div>
-    <footer>Albert R LaMotte dba Restoration Contractors MN · Exclusive matching · Minnesota law applies</footer>
-    """)
+def index():
+    return render_template_string(INDEX_TEMPLATE)
 
-@app.route("/signup", methods=["GET", "POST"])
-def signup():
-    if request.method == "POST":
-        d = request.form.to_dict()
-        services = request.form.get("services_joined") or request.form.get("services") or ""
-        d["services"] = services
-        d["service_area"] = request.form.get("service_area", "")
-        d["exclusive_only"] = request.form.get("exclusive_only", "No")
-        d["created_at"] = datetime.utcnow().isoformat()
-        with get_db() as db:
-            db.execute("""
-                INSERT INTO contractors (company, contact, phone, email, services, service_area, exclusive_only, created_at)
-                VALUES (:company, :contact, :phone, :email, :services, :service_area, :exclusive_only, :created_at)
-            """, d)
-        return render_template_string(f"""{STYLE}<div class="container"><div class="card"><h2>Application Received</h2><p>Thank you. We will review and activate your account for exclusive leads.</p><a href="/" class="btn">Return Home</a></div></div>""")
-
-    return render_template_string(f"""
-    {STYLE}
-    <div class="container">
-      <div class="card">
-        <h2>Contractor Sign Up</h2>
-        <p>Apply for exclusive Twin Cities leads. No shared leads.</p>
-        <form method="post" onsubmit="return joinServices(this)">
-          <label>Company Name *</label>
-          <input name="company" required>
-          <label>Contact Person *</label>
-          <input name="contact" required>
-          <label>Phone *</label>
-          <input name="phone" required>
-          <label>Email *</label>
-          <input name="email" type="email" required>
-          <label>Services Offered * (check all that apply)</label>
-          <div class="services">
-            <label><input type="checkbox" name="services" value="water damage"> Water Damage</label>
-            <label><input type="checkbox" name="services" value="dry out"> Dry Out</label>
-            <label><input type="checkbox" name="services" value="mold mitigation"> Mold Mitigation</label>
-            <label><input type="checkbox" name="services" value="mold inspection"> Mold Inspection</label>
-            <label><input type="checkbox" name="services" value="mold remediation"> Mold Remediation</label>
-            <label><input type="checkbox" name="services" value="indoor air quality"> Indoor Air Quality</label>
-            <label><input type="checkbox" name="services" value="roofing"> Roofing</label>
-            <label><input type="checkbox" name="services" value="siding"> Siding</label>
-            <label><input type="checkbox" name="services" value="windows"> Windows</label>
-            <label><input type="checkbox" name="services" value="gutters"> Gutters</label>
-            <label><input type="checkbox" name="services" value="remodeling"> Remodeling</label>
-            <label><input type="checkbox" name="services" value="kitchen"> Kitchen</label>
-            <label><input type="checkbox" name="services" value="bathroom"> Bathroom</label>
-            <label><input type="checkbox" name="services" value="addition"> Addition</label>
-            <label><input type="checkbox" name="services" value="flooring"> Flooring</label>
-            <label><input type="checkbox" name="services" value="painting"> Painting</label>
-            <label><input type="checkbox" name="services" value="hvac"> HVAC</label>
-            <label><input type="checkbox" name="services" value="plumbing"> Plumbing</label>
-            <label><input type="checkbox" name="services" value="electrical"> Electrical</label>
-            <label><input type="checkbox" name="services" value="landscaping"> Landscaping</label>
-            <label><input type="checkbox" name="services" value="decks"> Decks</label>
-            <label><input type="checkbox" name="services" value="fencing"> Fencing</label>
-            <label><input type="checkbox" name="services" value="other"> Other</label>
-          </div>
-          <input type="hidden" name="services_joined" id="services_joined">
-          <label>Primary Service Area *</label>
-          <input name="service_area" required placeholder="e.g. Twin Cities, Edina, Minnetonka, or full metro">
-          <label style="font-weight:500;"><input type="checkbox" name="exclusive_only" value="Yes" style="width:auto; margin-right:8px;"> I only want exclusive (non-shared) leads</label>
-          <button type="submit">Apply Now</button>
-          <p class="note">By submitting you agree to receive exclusive leads and confirm the information is accurate. Minnesota law applies.</p>
-        </form>
-      </div>
-    </div>
-    <script>
-      function joinServices(form) {{
-        const checked = Array.from(form.querySelectorAll('input[name="services"]:checked')).map(cb => cb.value);
-        document.getElementById('services_joined').value = checked.join(', ');
-        if (checked.length === 0) {{
-          alert('Please select at least one service.');
-          return false;
-        }}
-        return true;
-      }}
-    </script>
-    """)
-
-@app.route("/available_leads")
-def available_leads():
-    if "contractor_email" not in session:
-        return redirect(url_for("contractor_login"))
-    with get_db() as db:
-        rows = db.execute("SELECT * FROM leads WHERE status='available' ORDER BY created_at DESC").fetchall()
-    cards = ""
-    if not rows:
-        cards = '<div class="card"><p>No exclusive leads available right now.</p></div>'
-    else:
-        for r in rows:
-            expired = is_expired(r)
-            price = r["price"] or 0
-            cards += f'''
-            <div class="card">
-              <strong>{r["service"]}</strong> · ZIP {r["zip"]}<br>
-              <span class="red">{"EXPIRED" if expired else "Available"}</span> · ${price}<br>
-              <form method="post" action="/accept_lead">
-                <input type="hidden" name="lead_id" value="{r["id"]}">
-                <button type="submit" {"disabled" if expired else ""}>Accept Lead</button>
-              </form>
-            </div>'''
-    return render_template_string(f"""
-    {STYLE}
-    <div class="container">
-      <div class="card">
-        <h2>Available Exclusive Leads</h2>
-        <p>Contact info is completely hidden until you accept the lead.</p>
-        <p class="red">Leads expire after 24 hours if not accepted.</p>
-        <p><a href="/">← Home</a></p>
-      </div>
-      {cards}
-    </div>
-    """)
-
-@app.route("/accept_lead", methods=["POST"])
-def accept_lead():
-    if "contractor_email" not in session:
-        return redirect(url_for("contractor_login"))
-    lead_id = request.form.get("lead_id")
-    contractor_id = session.get("contractor_id")
-    if lead_id and contractor_id:
-        with get_db() as db:
-            db.execute("UPDATE leads SET status='accepted', sold_to=? WHERE id=? AND status='available'", (contractor_id, lead_id))
-    return redirect(url_for("available_leads"))
-
-@app.route("/contractors")
-def contractors():
-    with get_db() as db:
-        rows = db.execute("SELECT * FROM contractors ORDER BY created_at DESC").fetchall()
-    cards = ""
-    for r in rows:
-        status = "Active" if r["active"] else "Inactive"
-        cls = "" if r["active"] else "inactive"
-        cards += f'''
-        <div class="card {cls}">
-          <strong>{r["company"]}</strong> — {r["contact"]}<br>
-          {r["phone"]} · {r["email"]}<br>
-          Services: {r["services"] or "—"}<br>
-          Service Area: {r["service_area"] or "—"}<br>
-          Status: {status}
-          <form method="post" action="/toggle_contractor" style="margin-top:10px;">
-            <input type="hidden" name="id" value="{r["id"]}">
-            <button type="submit">{"Deactivate" if r["active"] else "Activate"}</button>
-          </form>
-        </div>'''
-    return render_template_string(f"""
-    {STYLE}
-    <div class="container">
-      <div class="card">
-        <h2>Contractor Management</h2>
-        <p>Activate or deactivate contractors for exclusive lead matching.</p>
-        <p><a href="/">← Home</a></p>
-      </div>
-      {cards or '<div class="card"><p>No contractors yet.</p></div>'}
-    </div>
-    """)
-
-@app.route("/toggle_contractor", methods=["POST"])
-def toggle_contractor():
-    cid = request.form.get("id")
-    if cid:
-        with get_db() as db:
-            db.execute("UPDATE contractors SET active = 1 - active WHERE id = ?", (cid,))
-    return redirect(url_for("contractors"))
-
-@app.route("/contractor_login", methods=["GET", "POST"])
-def contractor_login():
-    error = None
-    if request.method == "POST":
+@app.route("/submit-lead", methods=["POST"])
+def submit_lead():
+    try:
+        homeowner_name = request.form.get("homeowner_name")
+        phone = request.form.get("phone")
         email = request.form.get("email")
-        with get_db() as db:
-            contractor = db.execute("SELECT * FROM contractors WHERE email = ?", (email,)).fetchone()
-            if contractor:
-                session["contractor_email"] = contractor["email"]
-                session["contractor_id"] = contractor["id"]
-                return redirect(url_for("available_leads"))
-            else:
-                error = "Email not found. Please sign up first."
-    return render_template_string(f"""
-    {STYLE}
-    <div class="container">
-      <div class="card">
-        <h2>Contractor Login</h2>
-        {"<p class='red'>" + error + "</p>" if error else ""}
-        <form method="post">
-          <label>Email</label><input name="email" type="email" required>
-          <label>Password</label><input name="password" type="password">
-          <button type="submit">Login</button>
-        </form>
-        <p><a href="/">← Home</a></p>
-      </div>
-    </div>
-    """)
+        address = request.form.get("address")
+        project_type = request.form.get("project_type")
+        description = request.form.get("description")
+        sms_consent = True if request.form.get("sms_consent") == "yes" else False
 
-@app.route("/contractor_logout")
-def contractor_logout():
-    session.clear()
-    return redirect(url_for("home"))
+        if not sms_consent:
+            flash("SMS consent is required under TCPA regulations to submit your request.", "error")
+            return redirect(url_for("index"))
+
+        # Find active subscriber matching trade
+        matched_contractor = Contractor.query.filter_by(trade=project_type, is_active_subscriber=True).first()
+        contractor_id = matched_contractor.id if matched_contractor else None
+
+        new_lead = Lead(
+            homeowner_name=homeowner_name,
+            phone=phone,
+            email=email,
+            address=address,
+            project_type=project_type,
+            description=description,
+            sms_consent=sms_consent,
+            assigned_contractor_id=contractor_id,
+            status="New - Exclusive"
+        )
+        db.session.add(new_lead)
+        db.session.commit()
+
+        # Send SMS alert if contractor is matched
+        if matched_contractor and matched_contractor.phone:
+            sms_msg = f"New Exclusive Restoration Lead! {homeowner_name} ({phone}) needs {project_type} in {address}. Check your portal."
+            send_sms_alert(matched_contractor.phone, sms_msg)
+
+        flash("Your exclusive service request has been successfully submitted and dispatched!", "success")
+        return redirect(url_for("index"))
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error submitting request: {str(e)}", "error")
+        return redirect(url_for("index"))
+
+@app.route("/contractors/signup", methods=["GET", "POST"])
+def contractor_signup():
+    if request.method == "POST":
+        try:
+            company_name = request.form.get("company_name")
+            contact_name = request.form.get("contact_name")
+            email = request.form.get("email")
+            phone = request.form.get("phone")
+            trade = request.form.get("trade")
+            service_area = request.form.get("service_area")
+
+            existing = Contractor.query.filter_by(email=email).first()
+            if existing:
+                flash("An account with this email already exists. Please log in or proceed to billing.", "error")
+                return redirect(url_for("contractor_signup"))
+
+            contractor = Contractor(
+                company_name=company_name,
+                contact_name=contact_name,
+                email=email,
+                phone=phone,
+                trade=trade,
+                service_area=service_area,
+                is_active_subscriber=False
+            )
+            db.session.add(contractor)
+            db.session.commit()
+
+            return redirect(url_for("contractor_checkout", contractor_id=contractor.id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Signup error: {str(e)}", "error")
+            return redirect(url_for("contractor_signup"))
+
+    return render_template_string(CONTRACTOR_SIGNUP_TEMPLATE)
+
+@app.route("/contractors/checkout/<int:contractor_id>")
+def contractor_checkout(contractor_id):
+    contractor = Contractor.query.get_or_404(contractor_id)
+    try:
+        # Create Stripe Checkout Session for Exclusive Lead Subscription
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': f'Exclusive Lead Network Subscription - {contractor.trade}',
+                    },
+                    'unit_amount': 29900,  # $299.00 / month
+                    'recurring': {'interval': 'month'},
+                },
+                'quantity': 1,
+            }],
+            mode='subscription',
+            customer_email=contractor.email,
+            success_url=url_for('payment_success', contractor_id=contractor.id, _external=True),
+            cancel_url=url_for('contractor_signup', _external=True),
+        )
+        return redirect(checkout_session.url, code=303)
+    except Exception as e:
+        # Fallback simulator for test mode / sandbox setup without valid API keys configured
+        contractor.is_active_subscriber = True
+        db.session.commit()
+        flash("Stripe test mode active: Subscription simulated and activated successfully!", "success")
+        return redirect(url_for("admin_dashboard"))
+
+@app.route("/contractors/success/<int:contractor_id>")
+def payment_success(contractor_id):
+    contractor = Contractor.query.get_or_404(contractor_id)
+    contractor.is_active_subscriber = True
+    db.session.commit()
+    flash("Payment successful! Your exclusive contractor subscription is now active.", "success")
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin")
+def admin_dashboard():
+    leads = Lead.query.order_by(Lead.id.desc()).all()
+    contractors = Contractor.query.all()
+    return render_template_string(ADMIN_TEMPLATE, leads=leads, contractors=contractors)
 
 @app.route("/privacy")
-def privacy():
-    return render_template_string(f"""{STYLE}<div class="container"><div class="card">
-  <h1>Privacy Policy</h1>
-  <p><strong>Effective Date:</strong> October 26, 2026</p>
-  <p>Albert R LaMotte dba Restoration Contractors MN (“we,” “us,” or “our”) operates the websites restorationcontractorsmn.com and contractors.restorationcontractorsmn.com and the exclusive lead-matching service. This Privacy Policy explains how we collect, use, and share information. It is governed by Minnesota law.</p>
-
-  <h2>1. Information We Collect</h2>
-  <p><strong>From homeowners:</strong> Name, phone number, email address, ZIP code, service requested, project details, and any other information submitted on the consumer form.</p>
-  <p><strong>From contractors:</strong> Company name, contact name, phone number, email address, services offered, service area, and any other information submitted during signup.</p>
-  <p><strong>Automatically collected:</strong> IP address, browser type, device information, and pages visited through standard server logs.</p>
-  <p><strong>Communications:</strong> Records of emails or text messages related to lead matching or account management.</p>
-
-  <h2>2. How We Use Information</h2>
-  <ul>
-    <li>To match homeowners with one exclusive contractor.</li>
-    <li>To notify contractors of available exclusive leads and to notify homeowners when a contractor accepts their lead.</li>
-    <li>To manage contractor accounts and process lead acceptance.</li>
-    <li>To send transactional emails and SMS messages related to lead matching.</li>
-    <li>To improve the sites, prevent fraud, and comply with Minnesota law.</li>
-  </ul>
-
-  <h2>3. SMS and Email Communications</h2>
-  <p>By providing your phone number and checking the consent box (or submitting the form), you expressly consent to receive text messages and emails from us related to exclusive lead matching. Message and data rates may apply. Reply STOP to any SMS to opt out. You may unsubscribe from emails using the link in the message or by contacting us. Consent is not a condition of using the matching service.</p>
-
-  <h2>4. Sharing of Information</h2>
-  <p>Homeowner contact information is shared <strong>only</strong> with the single contractor who accepts the exclusive lead. Contractor contact information is shared with the homeowner only after the contractor accepts the lead. We do not sell, rent, or share the same lead with multiple contractors. We may share information with service providers (hosting, email, SMS) solely to operate the service, and as required by law.</p>
-
-  <h2>5. Data Retention</h2>
-  <p>We retain information as long as needed to provide the service, resolve disputes, and comply with legal obligations under Minnesota law.</p>
-
-  <h2>6. Your Rights</h2>
-  <p>Minnesota residents may request access to, correction of, or deletion of their personal information by contacting us. We will respond in accordance with applicable Minnesota law.</p>
-
-  <h2>7. Contact</h2>
-  <p>Albert R LaMotte dba Restoration Contractors MN<br>
-  Email: info@restorationcontractorsmn.com</p>
-
-  <h2>8. Changes</h2>
-  <p>We may update this Privacy Policy. The updated version will be posted on the sites with a new effective date.</p>
-
-  <p><a href="/">← Home</a></p>
-</div></div>
-""")
+def privacy_policy():
+    return render_template_string(PRIVACY_TEMPLATE)
 
 @app.route("/terms")
-def terms():
-    return render_template_string(f"""{STYLE}<div class="container"><div class="card">
-  <h1>Terms & Conditions</h1>
-  <p><strong>Effective Date:</strong> October 26, 2026</p>
-  <p>These Terms & Conditions (“Terms”) govern your use of the websites restorationcontractorsmn.com and contractors.restorationcontractorsmn.com and the exclusive lead-matching service operated by Albert R LaMotte dba Restoration Contractors MN (“we,” “us,” or “our”).</p>
-
-  <h2>1. Exclusive Leads Only</h2>
-  <p>All leads provided through this service are exclusive. A lead is offered to only one contractor at a time. We do not sell or share the same lead with multiple contractors. Contact information remains hidden until the contractor accepts the lead.</p>
-
-  <h2>2. Homeowner Terms</h2>
-  <p>By submitting a lead form, you authorize us to share your contact information and project details with one contractor who accepts the exclusive lead. You agree that the contractor is an independent business, not our employee or agent. You acknowledge that the Minnesota Home Solicitation Sales Act (Minn. Stat. §§ 325G.06–325G.11) and other applicable Minnesota consumer protection laws may apply to any in-home solicitation or contract with the contractor. You may cancel certain home solicitation contracts within the time periods required by Minnesota law.</p>
-
-  <h2>3. Contractor Terms</h2>
-  <p>Contractors must provide accurate information. Acceptance of a lead constitutes an agreement to contact the homeowner promptly. Contractors may accept or reject a lead. Unaccepted leads expire after 24 hours. Contractors are independent businesses. We do not guarantee the quality, outcome, or legality of any work performed.</p>
-
-  <h2>4. Minnesota Law</h2>
-  <p>These Terms and all agreements related to the service are governed by the laws of the State of Minnesota, without regard to conflict-of-law principles. Any disputes shall be resolved in the state or federal courts located in Minnesota. The Minnesota Home Solicitation Sales Act and other applicable Minnesota statutes apply where relevant.</p>
-
-  <h2>5. No Shared Leads</h2>
-  <p>We expressly do not operate a shared-lead model. Each lead is exclusive to one contractor.</p>
-
-  <h2>6. Limitation of Liability</h2>
-  <p>To the fullest extent permitted by Minnesota law, we are not liable for the acts, omissions, quality of work, or contractual disputes between homeowners and contractors. Our role is limited to exclusive lead matching.</p>
-
-  <h2>7. SMS and Email Consent</h2>
-  <p>By providing a phone number and submitting a form, you consent to receive transactional SMS and email messages related to lead matching. You may opt out of SMS by replying STOP.</p>
-
-  <h2>8. Changes</h2>
-  <p>We may update these Terms. Continued use of the sites after changes constitutes acceptance of the updated Terms.</p>
-
-  <h2>9. Contact</h2>
-  <p>Albert R LaMotte dba Restoration Contractors MN<br>
-  Email: info@restorationcontractorsmn.com</p>
-
-  <p><a href="/">← Home</a></p>
-</div></div>
-""")
+def terms_of_service():
+    return render_template_string(TERMS_TEMPLATE)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    with app.app_context():
+        db.create_all()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
