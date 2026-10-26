@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, timedelta
 import sqlite3
 from flask import Flask, redirect, render_template_string, request, session, url_for
 
@@ -25,7 +25,6 @@ STYLE = """
   .services input { width: auto; }
   footer { text-align: center; padding: 30px; color: #64748b; font-size: 14px; }
   .note { font-size: 14px; color: #64748b; }
-  .inactive { opacity: 0.7; background: #f1f5f9; }
 </style>
 """
 
@@ -74,6 +73,12 @@ def is_expired(lead):
 
 @app.route("/")
 def home():
+    logged_in = "contractor_email" in session
+    auth_nav = (
+        '<a href="/available_leads">Available Leads</a> <a href="/contractor_logout">Logout</a>'
+        if logged_in
+        else '<a href="/available_leads">Available Leads</a> <a href="/signup">Sign Up</a> <a href="/contractor_login">Login</a>'
+    )
     return render_template_string(f"""
     {STYLE}
     <div class="container">
@@ -83,9 +88,7 @@ def home():
         <p>Premium exclusive Twin Cities contractor leads. One contractor per job. Contact information remains hidden until you accept.</p>
         <p class="red">Leads expire after 24 hours if not accepted.</p>
         <div class="nav">
-          <a href="/available_leads">Available Leads</a>
-          <a href="/signup">Sign Up</a>
-          <a href="/contractor_login">Login</a>
+          {auth_nav}
           <a href="/contractors">Manage Contractors</a>
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>
@@ -176,6 +179,8 @@ def signup():
 
 @app.route("/available_leads")
 def available_leads():
+    if "contractor_email" not in session:
+        return redirect(url_for("contractor_login"))
     with get_db() as db:
         rows = db.execute("SELECT * FROM leads WHERE status='available' ORDER BY created_at DESC").fetchall()
     cards = ""
@@ -209,10 +214,13 @@ def available_leads():
 
 @app.route("/accept_lead", methods=["POST"])
 def accept_lead():
+    if "contractor_email" not in session:
+        return redirect(url_for("contractor_login"))
     lead_id = request.form.get("lead_id")
-    if lead_id:
+    contractor_id = session.get("contractor_id")
+    if lead_id and contractor_id:
         with get_db() as db:
-            db.execute("UPDATE leads SET status='accepted' WHERE id=? AND status='available'", (lead_id,))
+            db.execute("UPDATE leads SET status='accepted', sold_to=? WHERE id=? AND status='available'", (contractor_id, lead_id))
     return redirect(url_for("available_leads"))
 
 @app.route("/contractors")
@@ -229,7 +237,6 @@ def contractors():
           {r["phone"]} · {r["email"]}<br>
           Services: {r["services"] or "—"}<br>
           Service Area: {r["service_area"] or "—"}<br>
-          Exclusive Only: {r["exclusive_only"] or "No"}<br>
           Status: {status}
           <form method="post" action="/toggle_contractor" style="margin-top:10px;">
             <input type="hidden" name="id" value="{r["id"]}">
@@ -258,14 +265,23 @@ def toggle_contractor():
 
 @app.route("/contractor_login", methods=["GET", "POST"])
 def contractor_login():
+    error = None
     if request.method == "POST":
-        session["contractor_email"] = request.form.get("email")
-        return redirect(url_for("home"))
+        email = request.form.get("email")
+        with get_db() as db:
+            contractor = db.execute("SELECT * FROM contractors WHERE email = ?", (email,)).fetchone()
+            if contractor:
+                session["contractor_email"] = contractor["email"]
+                session["contractor_id"] = contractor["id"]
+                return redirect(url_for("available_leads"))
+            else:
+                error = "Email not found. Please sign up first."
     return render_template_string(f"""
     {STYLE}
     <div class="container">
       <div class="card">
         <h2>Contractor Login</h2>
+        {"<p class='red'>" + error + "</p>" if error else ""}
         <form method="post">
           <label>Email</label><input name="email" type="email" required>
           <label>Password</label><input name="password" type="password">
@@ -276,13 +292,94 @@ def contractor_login():
     </div>
     """)
 
+@app.route("/contractor_logout")
+def contractor_logout():
+    session.clear()
+    return redirect(url_for("home"))
+
 @app.route("/privacy")
 def privacy():
-    return render_template_string(f"""{STYLE}<div class="container"><div class="card"><h1>Privacy Policy</h1><p>Contractor information is used solely for account management and exclusive lead matching. Contact details are not shared with homeowners until a lead is accepted. No shared leads. Operated by Albert R LaMotte dba Restoration Contractors MN.</p><a href="/">← Home</a></div></div>""")
+    return render_template_string(f"""{STYLE}<div class="container"><div class="card">
+  <h1>Privacy Policy</h1>
+  <p><strong>Effective Date:</strong> October 26, 2026</p>
+  <p>Albert R LaMotte dba Restoration Contractors MN (“we,” “us,” or “our”) operates the websites restorationcontractorsmn.com and contractors.restorationcontractorsmn.com and the exclusive lead-matching service. This Privacy Policy explains how we collect, use, and share information. It is governed by Minnesota law.</p>
+
+  <h2>1. Information We Collect</h2>
+  <p><strong>From homeowners:</strong> Name, phone number, email address, ZIP code, service requested, project details, and any other information submitted on the consumer form.</p>
+  <p><strong>From contractors:</strong> Company name, contact name, phone number, email address, services offered, service area, and any other information submitted during signup.</p>
+  <p><strong>Automatically collected:</strong> IP address, browser type, device information, and pages visited through standard server logs.</p>
+  <p><strong>Communications:</strong> Records of emails or text messages related to lead matching or account management.</p>
+
+  <h2>2. How We Use Information</h2>
+  <ul>
+    <li>To match homeowners with one exclusive contractor.</li>
+    <li>To notify contractors of available exclusive leads and to notify homeowners when a contractor accepts their lead.</li>
+    <li>To manage contractor accounts and process lead acceptance.</li>
+    <li>To send transactional emails and SMS messages related to lead matching.</li>
+    <li>To improve the sites, prevent fraud, and comply with Minnesota law.</li>
+  </ul>
+
+  <h2>3. SMS and Email Communications</h2>
+  <p>By providing your phone number and checking the consent box (or submitting the form), you expressly consent to receive text messages and emails from us related to exclusive lead matching. Message and data rates may apply. Reply STOP to any SMS to opt out. You may unsubscribe from emails using the link in the message or by contacting us. Consent is not a condition of using the matching service.</p>
+
+  <h2>4. Sharing of Information</h2>
+  <p>Homeowner contact information is shared <strong>only</strong> with the single contractor who accepts the exclusive lead. Contractor contact information is shared with the homeowner only after the contractor accepts the lead. We do not sell, rent, or share the same lead with multiple contractors. We may share information with service providers (hosting, email, SMS) solely to operate the service, and as required by law.</p>
+
+  <h2>5. Data Retention</h2>
+  <p>We retain information as long as needed to provide the service, resolve disputes, and comply with legal obligations under Minnesota law.</p>
+
+  <h2>6. Your Rights</h2>
+  <p>Minnesota residents may request access to, correction of, or deletion of their personal information by contacting us. We will respond in accordance with applicable Minnesota law.</p>
+
+  <h2>7. Contact</h2>
+  <p>Albert R LaMotte dba Restoration Contractors MN<br>
+  Email: info@restorationcontractorsmn.com</p>
+
+  <h2>8. Changes</h2>
+  <p>We may update this Privacy Policy. The updated version will be posted on the sites with a new effective date.</p>
+
+  <p><a href="/">← Home</a></p>
+</div></div>
+""")
 
 @app.route("/terms")
 def terms():
-    return render_template_string(f"""{STYLE}<div class="container"><div class="card"><h1>Terms</h1><p>Exclusive lead service operated by Albert R LaMotte dba Restoration Contractors MN. Contractors are charged only upon acceptance of a lead. All agreements are governed by Minnesota law, including the Home Solicitation Sales Act. No shared leads.</p><a href="/">← Home</a></div></div>""")
+    return render_template_string(f"""{STYLE}<div class="container"><div class="card">
+  <h1>Terms & Conditions</h1>
+  <p><strong>Effective Date:</strong> October 26, 2026</p>
+  <p>These Terms & Conditions (“Terms”) govern your use of the websites restorationcontractorsmn.com and contractors.restorationcontractorsmn.com and the exclusive lead-matching service operated by Albert R LaMotte dba Restoration Contractors MN (“we,” “us,” or “our”).</p>
+
+  <h2>1. Exclusive Leads Only</h2>
+  <p>All leads provided through this service are exclusive. A lead is offered to only one contractor at a time. We do not sell or share the same lead with multiple contractors. Contact information remains hidden until the contractor accepts the lead.</p>
+
+  <h2>2. Homeowner Terms</h2>
+  <p>By submitting a lead form, you authorize us to share your contact information and project details with one contractor who accepts the exclusive lead. You agree that the contractor is an independent business, not our employee or agent. You acknowledge that the Minnesota Home Solicitation Sales Act (Minn. Stat. §§ 325G.06–325G.11) and other applicable Minnesota consumer protection laws may apply to any in-home solicitation or contract with the contractor. You may cancel certain home solicitation contracts within the time periods required by Minnesota law.</p>
+
+  <h2>3. Contractor Terms</h2>
+  <p>Contractors must provide accurate information. Acceptance of a lead constitutes an agreement to contact the homeowner promptly. Contractors may accept or reject a lead. Unaccepted leads expire after 24 hours. Contractors are independent businesses. We do not guarantee the quality, outcome, or legality of any work performed.</p>
+
+  <h2>4. Minnesota Law</h2>
+  <p>These Terms and all agreements related to the service are governed by the laws of the State of Minnesota, without regard to conflict-of-law principles. Any disputes shall be resolved in the state or federal courts located in Minnesota. The Minnesota Home Solicitation Sales Act and other applicable Minnesota statutes apply where relevant.</p>
+
+  <h2>5. No Shared Leads</h2>
+  <p>We expressly do not operate a shared-lead model. Each lead is exclusive to one contractor.</p>
+
+  <h2>6. Limitation of Liability</h2>
+  <p>To the fullest extent permitted by Minnesota law, we are not liable for the acts, omissions, quality of work, or contractual disputes between homeowners and contractors. Our role is limited to exclusive lead matching.</p>
+
+  <h2>7. SMS and Email Consent</h2>
+  <p>By providing a phone number and submitting a form, you consent to receive transactional SMS and email messages related to lead matching. You may opt out of SMS by replying STOP.</p>
+
+  <h2>8. Changes</h2>
+  <p>We may update these Terms. Continued use of the sites after changes constitutes acceptance of the updated Terms.</p>
+
+  <h2>9. Contact</h2>
+  <p>Albert R LaMotte dba Restoration Contractors MN<br>
+  Email: info@restorationcontractorsmn.com</p>
+
+  <p><a href="/">← Home</a></p>
+</div></div>
+""")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
