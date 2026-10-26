@@ -11,46 +11,42 @@ db = SQLAlchemy(app)
 
 class Lead(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    homeowner_name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20), nullable=False)
-    city = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
     zip_code = db.Column(db.String(10), nullable=False)
-    damage_type = db.Column(db.String(50), nullable=False)
-    status = db.Column(db.String(20), default='New')
+    service_type = db.Column(db.String(50), nullable=False)
 
 class Contractor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    company_name = db.Column(db.String(100), nullable=False)
+    company_name = db.Column(db.String(120), nullable=False)
     contact_name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     phone = db.Column(db.String(20), nullable=False)
-    license_number = db.Column(db.String(50), nullable=False)
-    is_active_subscriber = db.Column(db.Boolean, default=True)
+    license_number = db.Column(db.String(50), unique=True, nullable=False)
 
 with app.app_context():
     db.create_all()
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'], strict_slashes=False)
 def index():
+    if request.method == 'POST':
+        try:
+            new_lead = Lead(
+                name=request.form.get('name'),
+                phone=request.form.get('phone'),
+                email=request.form.get('email'),
+                zip_code=request.form.get('zip_code'),
+                service_type=request.form.get('service_type')
+            )
+            db.session.add(new_lead)
+            db.session.commit()
+            flash('Your restoration request has been submitted successfully!', 'success')
+            return redirect(url_for('index'))
+        except Exception as e:
+            db.session.rollback()
+            flash('An error occurred while submitting your request. Please try again.', 'error')
     return render_template('index.html')
-
-@app.route('/submit-lead', methods=['POST'])
-def submit_lead():
-    try:
-        new_lead = Lead(
-            homeowner_name=request.form.get('homeowner_name'),
-            phone=request.form.get('phone'),
-            city=request.form.get('city'),
-            zip_code=request.form.get('zip_code'),
-            damage_type=request.form.get('damage_type')
-        )
-        db.session.add(new_lead)
-        db.session.commit()
-        flash('Your request has been submitted successfully. A licensed contractor will contact you shortly.', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash('An error occurred while submitting your request. Please try again.', 'error')
-    return redirect(url_for('index'))
 
 @app.route('/contractors/signup', methods=['GET', 'POST'], strict_slashes=False)
 def contractor_signup():
