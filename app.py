@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
@@ -60,8 +60,13 @@ def contractor_signup():
 
 @app.route('/admin', strict_slashes=False)
 def admin_dashboard():
-    leads = Lead.query.all()
-    contractors = Contractor.query.all()
+    try:
+        leads = Lead.query.all()
+        contractors = Contractor.query.all()
+    except Exception as e:
+        db.create_all()
+        leads = Lead.query.all()
+        contractors = Contractor.query.all()
     return render_template('admin.html', leads=leads, contractors=contractors)
 
 if __name__ == '__main__':
