@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restoration Contractors MN - Exclusive Lead Matching</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="max-w-2xl mx-auto px-4 py-12">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Restoration Contractors MN</h1>
+            <div class="space-x-4">
+                <a href="/contractors/signup" class="text-blue-600 font-semibold hover:underline">Contractor Login / Signup</a>
+                <a href="/admin" class="text-gray-600 hover:underline">Admin</a>
+            </div>
+        </div>
+        <div class="bg-white shadow-md rounded-lg p-8">
+            <h2 class="text-xl font-semibold mb-2 text-gray-700">Request a Verified Restoration Contractor</h2>
+            <form method="POST" action="/submit-lead" class="space-y-4 mt-4">
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1">Your Name</label>
+                    <input type="text" name="homeowner_name" required class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1">Phone Number</label>
+                    <input type="text" name="phone" required class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">City</label>
+                        <input type="text" name="city" required class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-1">ZIP Code</label>
+                        <input type="text" name="zip_code" required class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1">Damage Type</label>
+                    <select name="damage_type" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="Water Damage">Water Damage</option>
+                        <option value="Storm / Hail Damage">Storm / Hail Damage</option>
+                        <option value="Fire / Smoke Damage">Fire / Smoke Damage</option>
+                        <option value="Mold Remediation">Mold Remediation</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">Get Matched Exclusively</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

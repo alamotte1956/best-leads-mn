@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Restoration Contractors MN</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">Admin Control Panel</h1>
+            <a href="/" class="text-blue-600 hover:underline"> Back to Home</a>
+        </div>
+        <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Incoming Homeowner Leads</h2>
+            <table class="min-w-full bg-white border border-gray-200">
+                <tr class="bg-gray-50 border-b">
+                    <th class="py-2 px-4 border-r text-left">ID</th>
+                    <th class="py-2 px-4 border-r text-left">Homeowner</th>
+                    <th class="py-2 px-4 border-r text-left">Phone</th>
+                    <th class="py-2 px-4 border-r text-left">City / Zip</th>
+                    <th class="py-2 px-4 border-r text-left">Damage Type</th>
+                    <th class="py-2 px-4 text-left">Status</th>
+                </tr>
+                {% for lead in leads %}
+                <tr class="border-b">
+                    <td class="py-2 px-4 border-r">{{ lead.id }}</td>
+                    <td class="py-2 px-4 border-r">{{ lead.homeowner_name }}</td>
+                    <td class="py-2 px-4 border-r">{{ lead.phone }}</td>
+                    <td class="py-2 px-4 border-r">{{ lead.city }} ({{ lead.zip_code }})</td>
+                    <td class="py-2 px-4 border-r">{{ lead.damage_type }}</td>
+                    <td class="py-2 px-4">{{ lead.status }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Registered Contractors</h2>
+            <table class="min-w-full bg-white border border-gray-200">
+                <tr class="bg-gray-50 border-b">
+                    <th class="py-2 px-4 border-r text-left">Company Name</th>
+                    <th class="py-2 px-4 border-r text-left">Contact</th>
+                    <th class="py-2 px-4 border-r text-left">Email / Phone</th>
+                    <th class="py-2 px-4 border-r text-left">License #</th>
+                    <th class="py-2 px-4 text-left">Status</th>
+                </tr>
+                {% for contractor in contractors %}
+                <tr class="border-b">
+                    <td class="py-2 px-4 border-r font-medium">{{ contractor.company_name }}</td>
+                    <td class="py-2 px-4 border-r">{{ contractor.contact_name }}</td>
+                    <td class="py-2 px-4 border-r">{{ contractor.email }}</td>
+                    <td class="py-2 px-4 border-r">{{ contractor.license_number }}</td>
+                    <td class="py-2 px-4">Active</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+</body>
+</html>
