@@ -1,7 +1,7 @@
-from flask import Flask, request, render_template_string, redirect, url_for, session
-import sqlite3
 import os
 from datetime import datetime, timedelta
+import sqlite3
+from flask import Flask, redirect, render_template_string, request, session, url_for
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-key-change-me")
@@ -43,6 +43,8 @@ def init_db():
             phone TEXT,
             email TEXT,
             services TEXT,
+            service_area TEXT,
+            exclusive_only TEXT,
             created_at TEXT,
             active INTEGER DEFAULT 0
         );
@@ -71,6 +73,12 @@ def is_expired(lead):
 
 @app.route("/")
 def home():
+    logged_in = "contractor_email" in session
+    auth_nav = (
+        '<a href="/available_leads">Available Leads</a> <a href="/contractor_logout">Logout</a>'
+        if logged_in
+        else '<a href="/available_leads">Available Leads</a> <a href="/signup">Sign Up</a> <a href="/contractor_login">Login</a>'
+    )
     return render_template_string(f"""
     {STYLE}
     <div class="container">
@@ -80,9 +88,7 @@ def home():
         <p>Premium exclusive Twin Cities contractor leads. One contractor per job. Contact information remains hidden until you accept.</p>
         <p class="red">Leads expire after 24 hours if not accepted.</p>
         <div class="nav">
-          <a href="/available_leads">Available Leads</a>
-          <a href="/signup">Sign Up</a>
-          <a href="/contractor_login">Login</a>
+          {auth_nav}
           <a href="/contractors">Manage Contractors</a>
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>
@@ -96,14 +102,15 @@ def home():
 def signup():
     if request.method == "POST":
         d = request.form.to_dict()
-        # Use the joined services value if present
         services = request.form.get("services_joined") or request.form.get("services") or ""
         d["services"] = services
+        d["service_area"] = request.form.get("service_area", "")
+        d["exclusive_only"] = request.form.get("exclusive_only", "No")
         d["created_at"] = datetime.utcnow().isoformat()
         with get_db() as db:
             db.execute("""
-                INSERT INTO contractors (company, contact, phone, email, services, created_at)
-                VALUES (:company, :contact, :phone, :email, :services, :created_at)
+                INSERT INTO contractors (company, contact, phone, email, services, service_area, exclusive_only, created_at)
+                VALUES (:company, :contact, :phone, :email, :services, :service_area, :exclusive_only, :created_at)
             """, d)
         return render_template_string(f"""{STYLE}<div class="container"><div class="card"><h2>Application Received</h2><p>Thank you. We will review and activate your account for exclusive leads.</p><a href="/" class="btn">Return Home</a></div></div>""")
 
@@ -172,6 +179,8 @@ def signup():
 
 @app.route("/available_leads")
 def available_leads():
+    if "contractor_email" not in session:
+        return redirect(url_for("contractor_login"))
     with get_db() as db:
         rows = db.execute("SELECT * FROM leads WHERE status='available' ORDER BY created_at DESC").fetchall()
     cards = ""
@@ -205,10 +214,13 @@ def available_leads():
 
 @app.route("/accept_lead", methods=["POST"])
 def accept_lead():
+    if "contractor_email" not in session:
+        return redirect(url_for("contractor_login"))
     lead_id = request.form.get("lead_id")
-    if lead_id:
+    contractor_id = session.get("contractor_id")
+    if lead_id and contractor_id:
         with get_db() as db:
-            db.execute("UPDATE leads SET status='accepted' WHERE id=? AND status='available'", (lead_id,))
+            db.execute("UPDATE leads SET status='accepted', sold_to=? WHERE id=? AND status='available'", (contractor_id, lead_id))
     return redirect(url_for("available_leads"))
 
 @app.route("/contractors")
@@ -224,6 +236,7 @@ def contractors():
           <strong>{r["company"]}</strong> — {r["contact"]}<br>
           {r["phone"]} · {r["email"]}<br>
           Services: {r["services"] or "—"}<br>
+          Service Area: {r["service_area"] or "—"}<br>
           Status: {status}
           <form method="post" action="/toggle_contractor" style="margin-top:10px;">
             <input type="hidden" name="id" value="{r["id"]}">
@@ -252,14 +265,23 @@ def toggle_contractor():
 
 @app.route("/contractor_login", methods=["GET", "POST"])
 def contractor_login():
+    error = None
     if request.method == "POST":
-        session["contractor_email"] = request.form.get("email")
-        return redirect(url_for("home"))
+        email = request.form.get("email")
+        with get_db() as db:
+            contractor = db.execute("SELECT * FROM contractors WHERE email = ?", (email,)).fetchone()
+            if contractor:
+                session["contractor_email"] = contractor["email"]
+                session["contractor_id"] = contractor["id"]
+                return redirect(url_for("available_leads"))
+            else:
+                error = "Email not found. Please sign up first."
     return render_template_string(f"""
     {STYLE}
     <div class="container">
       <div class="card">
         <h2>Contractor Login</h2>
+        {"<p class='red'>" + error + "</p>" if error else ""}
         <form method="post">
           <label>Email</label><input name="email" type="email" required>
           <label>Password</label><input name="password" type="password">
@@ -269,6 +291,11 @@ def contractor_login():
       </div>
     </div>
     """)
+
+@app.route("/contractor_logout")
+def contractor_logout():
+    session.clear()
+    return redirect(url_for("home"))
 
 @app.route("/privacy")
 def privacy():
