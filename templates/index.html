@@ -1,105 +1,169 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang='en' class='scroll-smooth'>
 <head>
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Restoration Contractors MN - Twin Cities Emergency Property Restoration</title>
     <script src='https://cdn.tailwindcss.com'></script>
+    <link rel='preconnect' href='https://fonts.googleapis.com'>
+    <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+    <link href='https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap' rel='stylesheet'>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
 </head>
-<body class='bg-slate-50 font-sans'>
-    <header class='bg-white shadow-sm sticky top-0 z-50'>
-        <div class='max-w-7xl mx-auto px-4 py-4 flex justify-between items-center'>
-            <div class='flex items-center space-x-2'>
-                <span class='text-2xl font-black text-amber-600'>Restoration Contractors MN</span>
-                <span class='text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full font-semibold'>Twin Cities Verified</span>
+<body class='bg-slate-900 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950'>
+    <!-- Top Announcement Bar -->
+    <div class='bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white text-xs sm:text-sm font-semibold py-2 px-4 text-center tracking-wide shadow-inner'>
+        <span class='inline-flex items-center gap-1.5'>
+            <svg class='w-4 h-4 animate-pulse' fill='currentColor' viewBox='0 0 20 20'><path d='M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z'/></svg>
+            24/7 Emergency Response Active across Minneapolis, St. Paul & Twin Cities Metro. Avg Callback: 5 Minutes.
+        </span>
+    </div>
+
+    <!-- Navigation Bar -->
+    <header class='bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50'>
+        <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center'>
+            <div class='flex items-center space-x-3'>
+                <div class='w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg shadow-amber-500/20'>
+                    RC
+                </div>
+                <div>
+                    <span class='text-xl sm:text-2xl font-extrabold tracking-tight text-white'>Restoration<span class='text-amber-500'>MN</span></span>
+                    <span class='block text-[10px] tracking-widest uppercase font-bold text-slate-400'>Twin Cities Verified Network</span>
+                </div>
             </div>
-            <nav class='flex items-center space-x-6'>
-                <a href='/' class='text-amber-600 font-bold'>Home</a>
-                <a href='/contractors/signup' class='text-gray-600 hover:text-amber-600 font-medium'>For Contractors</a>
-                <a href='/admin' class='text-gray-600 hover:text-amber-600 font-medium'>Admin</a>
+            <nav class='hidden md:flex items-center space-x-8'>
+                <a href='/' class='text-amber-400 font-bold text-sm transition'>Home</a>
+                <a href='/contractors/signup' class='text-slate-300 hover:text-amber-400 font-medium text-sm transition'>For Contractors</a>
+                <a href='/admin' class='text-slate-300 hover:text-amber-400 font-medium text-sm transition'>Command Center</a>
             </nav>
+            <div>
+                <a href='#dispatch-form' class='bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm transition shadow-lg shadow-amber-500/20 inline-flex items-center gap-2'>
+                    <span>Emergency Dispatch</span>
+                    &rarr;
+                </a>
+            </div>
         </div>
     </header>
 
-    <main class='max-w-7xl mx-auto px-4 py-12'>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class='mb-8 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium shadow-sm'>
-                {{ message }}
-              </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+    <!-- Hero Section -->
+    <main class='relative overflow-hidden'>
+        <!-- Glow Backdrop Gradients -->
+        <div class='absolute top-0 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none'></div>
+        <div class='absolute top-1/3 right-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none'></div>
 
-        <div class='grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16'>
-            <div>
-                <span class='bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider'>Minnesota #1 Emergency Marketplace</span>
-                <h1 class='text-4xl sm:text-5xl font-extrabold text-gray-900 mt-4 mb-6 leading-tight'>
-                    Instant Match with <span class='text-amber-600'>Licensed Twin Cities</span> Restoration Pros
-                </h1>
-                <p class='text-lg text-gray-600 mb-8'>
-                    Water damage, storm destruction, mold, or fire emergency? Get matched instantly with pre-screened, licensed Minnesota contractors guaranteed to respond within 5 minutes.
-                </p>
-                <div class='grid grid-cols-3 gap-4 text-center border-t border-b border-gray-200 py-6'>
-                    <div>
-                        <div class='text-2xl font-black text-gray-900'>5 Min</div>
-                        <div class='text-xs text-gray-500'>Avg. Pro Callback</div>
+        <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24'>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class='mb-8 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-medium shadow-lg backdrop-blur-sm'>
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class='grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center'>
+                <!-- Left Column: Value Prop -->
+                <div class='lg:col-span-7 space-y-8'>
+                    <div class='inline-flex items-center gap-2 bg-slate-800/80 border border-slate-700/80 px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase text-amber-400'>
+                        <span class='w-2 h-2 rounded-full bg-amber-400 animate-ping'></span>
+                        Minnesota #1 Emergency Property Restoration Marketplace
                     </div>
-                    <div>
-                        <div class='text-2xl font-black text-gray-900'>100%</div>
-                        <div class='text-xs text-gray-500'>MN Licensed & Insured</div>
+                    
+                    <h1 class='text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-[1.1]'>
+                        Instant Match with <span class='text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500'>Licensed Twin Cities</span> Restoration Pros
+                    </h1>
+
+                    <p class='text-lg sm:text-xl text-slate-300 leading-relaxed'>
+                        Dealing with unexpected water damage, storm destruction, mold proliferation, or fire emergency? Get matched instantly with pre-screened, fully licensed Minnesota contractors guaranteed to respond within 5 minutes.
+                    </p>
+
+                    <!-- Trust Metrics Grid -->
+                    <div class='grid grid-cols-3 gap-6 pt-4 border-t border-slate-800'>
+                        <div class='bg-slate-800/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-sm'>
+                            <div class='text-3xl font-black text-white'>5 Min</div>
+                            <div class='text-xs text-slate-400 font-medium mt-1'>Avg. Pro Callback</div>
+                        </div>
+                        <div class='bg-slate-800/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-sm'>
+                            <div class='text-3xl font-black text-white'>100%</div>
+                            <div class='text-xs text-slate-400 font-medium mt-1'>MN Licensed & Insured</div>
+                        </div>
+                        <div class='bg-slate-800/40 border border-slate-800 p-4 rounded-2xl backdrop-blur-sm'>
+                            <div class='text-3xl font-black text-amber-400 flex items-center gap-1'>
+                                <span>5.0</span>
+                                <svg class='w-5 h-5 fill-amber-400' viewBox='0 0 20 20'><path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.690h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.690l1.07-3.292z'/></svg>
+                            </div>
+                            <div class='text-xs text-slate-400 font-medium mt-1'>Verified Ratings</div>
+                        </div>
                     </div>
-                    <div>
-                        <div class='text-2xl font-black text-gray-900'>5.0 ?</div>
-                        <div class='text-xs text-gray-500'>Verified Ratings</div>
+
+                    <!-- Specialty Badges -->
+                    <div class='flex flex-wrap gap-2 pt-2'>
+                        <span class='bg-slate-800 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-700'>💧 Water Damage & Extraction</span>
+                        <span class='bg-slate-800 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-700'>⚡ Storm & Wind Repair</span>
+                        <span class='bg-slate-800 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-700'>🛡️ Mold Remediation</span>
+                        <span class='bg-slate-800 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-700'>🔥 Fire & Smoke Cleanup</span>
                     </div>
                 </div>
-            </div>
 
-            <div class='bg-white rounded-3xl shadow-2xl p-8 border border-gray-100'>
-                <h2 class='text-2xl font-bold text-gray-900 mb-2'>Request Emergency Dispatch</h2>
-                <p class='text-sm text-gray-500 mb-6'>Connect with top-rated local pros across Minneapolis, St. Paul, and surrounding suburbs.</p>
-                
-                <form method='POST' class='space-y-4'>
-                    <div>
-                        <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Your Full Name</label>
-                        <input type='text' name='name' required class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
-                    </div>
-                    <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-                        <div>
-                            <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Phone Number</label>
-                            <input type='tel' name='phone' required placeholder='(612) 555-0199' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
+                <!-- Right Column: Modern High-Conversion Form -->
+                <div class='lg:col-span-5' id='dispatch-form'>
+                    <div class='bg-slate-800/90 border border-slate-700/80 rounded-3xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl relative'>
+                        <div class='absolute -top-3 right-6 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-lg'>
+                            Priority Dispatch
                         </div>
-                        <div>
-                            <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Email Address</label>
-                            <input type='email' name='email' required class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
-                        </div>
+
+                        <h2 class='text-2xl font-extrabold text-white mb-2'>Request Emergency Dispatch</h2>
+                        <p class='text-xs sm:text-sm text-slate-400 mb-6'>Connect with top-rated local pros across Minneapolis, St. Paul, and surrounding suburbs.</p>
+
+                        <form method='POST' class='space-y-4'>
+                            <div>
+                                <label class='block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1'>Your Full Name</label>
+                                <input type='text' name='name' required placeholder='John Smith' class='w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition'>
+                            </div>
+
+                            <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                                <div>
+                                    <label class='block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1'>Phone Number</label>
+                                    <input type='tel' name='phone' required placeholder='(612) 555-0199' class='w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition'>
+                                </div>
+                                <div>
+                                    <label class='block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1'>Email Address</label>
+                                    <input type='email' name='email' required placeholder='john@example.com' class='w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition'>
+                                </div>
+                            </div>
+
+                            <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                                <div>
+                                    <label class='block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1'>Property ZIP Code</label>
+                                    <input type='text' name='zip_code' required placeholder='55401' class='w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition'>
+                                </div>
+                                <div>
+                                    <label class='block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1'>Service Needed</label>
+                                    <select name='service_type' class='w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition'>
+                                        <option>Water Damage Restoration</option>
+                                        <option>Storm & Wind Repair</option>
+                                        <option>Mold Remediation</option>
+                                        <option>Fire & Smoke Restoration</option>
+                                        <option>Roofing & Siding</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class='block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1'>Describe Damage / Emergency</label>
+                                <textarea name='description' rows='3' placeholder='Briefly describe the damage or emergency...' class='w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition resize-none'></textarea>
+                            </div>
+
+                            <button type='submit' class='w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold py-4 rounded-xl shadow-xl shadow-amber-500/20 transition duration-200 text-base flex items-center justify-center gap-2'>
+                                <span>Get Instant Pro Match Now</span>
+                                &rarr;
+                            </button>
+                        </form>
                     </div>
-                    <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-                        <div>
-                            <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Property ZIP Code</label>
-                            <input type='text' name='zip_code' required placeholder='55401' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
-                        </div>
-                        <div>
-                            <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Service Needed</label>
-                            <select name='service_type' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white'>
-                                <option>Water Damage Restoration</option>
-                                <option>Storm & Wind Repair</option>
-                                <option>Mold Remediation</option>
-                                <option>Fire & Smoke Restoration</option>
-                                <option>Roofing & Siding</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Describe Damage / Emergency</label>
-                        <textarea name='description' rows='3' placeholder='Briefly describe the damage or emergency...' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'></textarea>
-                    </div>
-                    <button type='submit' class='w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 rounded-xl shadow-lg transition duration-200 text-lg'>
-                        Get Instant Pro Match Now ?
-                    </button>
-                </form>
+                </div>
             </div>
         </div>
     </main>
