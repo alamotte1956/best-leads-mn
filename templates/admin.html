@@ -1,61 +1,115 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang='en'>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Admin Dashboard - Restoration Contractors MN</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src='https://cdn.tailwindcss.com'></script>
 </head>
-<body class="bg-gray-100 font-sans leading-normal tracking-normal">
-    <div class="container mx-auto px-4 py-8">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">Admin Control Panel</h1>
-            <a href="/" class="text-blue-600 hover:underline"> Back to Home</a>
+<body class='bg-slate-50 font-sans'>
+    <!-- Header -->
+    <header class='bg-white shadow-sm sticky top-0 z-50'>
+        <div class='max-w-7xl mx-auto px-4 py-4 flex justify-between items-center'>
+            <div class='flex items-center space-x-2'>
+                <span class='text-2xl font-black text-amber-600'>RestorationMN</span>
+                <span class='text-xs bg-slate-900 text-white px-2 py-0.5 rounded-full font-semibold'>Admin Portal</span>
+            </div>
+            <nav class='flex items-center space-x-6'>
+                <a href='/' class='text-gray-600 hover:text-amber-600 font-medium'>Home</a>
+                <a href='/contractors/signup' class='text-gray-600 hover:text-amber-600 font-medium'>For Contractors</a>
+                <a href='/admin' class='text-amber-600 font-bold'>Admin</a>
+            </nav>
         </div>
-        <div class="bg-white shadow-md rounded-lg p-6 mb-8">
-            <h2 class="text-xl font-semibold mb-4 text-gray-700">Incoming Homeowner Leads</h2>
-            <table class="min-w-full bg-white border border-gray-200">
-                <tr class="bg-gray-50 border-b">
-                    <th class="py-2 px-4 border-r text-left">ID</th>
-                    <th class="py-2 px-4 border-r text-left">Homeowner</th>
-                    <th class="py-2 px-4 border-r text-left">Phone</th>
-                    <th class="py-2 px-4 border-r text-left">City / Zip</th>
-                    <th class="py-2 px-4 border-r text-left">Damage Type</th>
-                    <th class="py-2 px-4 text-left">Status</th>
-                </tr>
-                {% for lead in leads %}
-                <tr class="border-b">
-                    <td class="py-2 px-4 border-r">{{ lead.id }}</td>
-                    <td class="py-2 px-4 border-r">{{ lead.homeowner_name }}</td>
-                    <td class="py-2 px-4 border-r">{{ lead.phone }}</td>
-                    <td class="py-2 px-4 border-r">{{ lead.city }} ({{ lead.zip_code }})</td>
-                    <td class="py-2 px-4 border-r">{{ lead.damage_type }}</td>
-                    <td class="py-2 px-4">{{ lead.status }}</td>
-                </tr>
-                {% endfor %}
-            </table>
+    </header>
+
+    <!-- Main Content -->
+    <main class='max-w-7xl mx-auto px-4 py-12'>
+        <div class='mb-10'>
+            <h1 class='text-3xl font-extrabold text-gray-900'>Marketplace Dashboard</h1>
+            <p class='text-gray-600'>Manage incoming homeowner restoration leads and verified contractor registrations.</p>
         </div>
-        <div class="bg-white shadow-md rounded-lg p-6">
-            <h2 class="text-xl font-semibold mb-4 text-gray-700">Registered Contractors</h2>
-            <table class="min-w-full bg-white border border-gray-200">
-                <tr class="bg-gray-50 border-b">
-                    <th class="py-2 px-4 border-r text-left">Company Name</th>
-                    <th class="py-2 px-4 border-r text-left">Contact</th>
-                    <th class="py-2 px-4 border-r text-left">Email / Phone</th>
-                    <th class="py-2 px-4 border-r text-left">License #</th>
-                    <th class="py-2 px-4 text-left">Status</th>
-                </tr>
-                {% for contractor in contractors %}
-                <tr class="border-b">
-                    <td class="py-2 px-4 border-r font-medium">{{ contractor.company_name }}</td>
-                    <td class="py-2 px-4 border-r">{{ contractor.contact_name }}</td>
-                    <td class="py-2 px-4 border-r">{{ contractor.email }}</td>
-                    <td class="py-2 px-4 border-r">{{ contractor.license_number }}</td>
-                    <td class="py-2 px-4">Active</td>
-                </tr>
-                {% endfor %}
-            </table>
+
+        <!-- Leads Section -->
+        <div class='bg-white rounded-2xl shadow-xl p-8 mb-12 border border-gray-100'>
+            <h2 class='text-xl font-bold text-gray-900 mb-6 flex items-center justify-between'>
+                <span>Homeowner Leads</span>
+                <span class='text-sm bg-amber-100 text-amber-800 px-3 py-1 rounded-full'>{{ leads|length }} Total</span>
+            </h2>
+
+            <div class='overflow-x-auto'>
+                <table class='w-full text-left border-collapse'>
+                    <thead>
+                        <tr class='border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider'>
+                            <th class='py-3 px-4'>ID</th>
+                            <th class='py-3 px-4'>Name</th>
+                            <th class='py-3 px-4'>Phone</th>
+                            <th class='py-3 px-4'>Email</th>
+                            <th class='py-3 px-4'>ZIP Code</th>
+                            <th class='py-3 px-4'>Service</th>
+                            <th class='py-3 px-4'>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class='divide-y divide-gray-100 text-sm text-gray-700'>
+                        {% for lead in leads %}
+                        <tr class='hover:bg-slate-50'>
+                            <td class='py-4 px-4 font-semibold'>#{{ lead.id }}</td>
+                            <td class='py-4 px-4 font-medium text-gray-900'>{{ lead.name }}</td>
+                            <td class='py-4 px-4'>{{ lead.phone }}</td>
+                            <td class='py-4 px-4'>{{ lead.email }}</td>
+                            <td class='py-4 px-4'>{{ lead.zip_code }}</td>
+                            <td class='py-4 px-4'><span class='bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-xs font-semibold'>{{ lead.service_type }}</span></td>
+                            <td class='py-4 px-4'><span class='bg-amber-50 text-amber-700 px-2.5 py-1 rounded-md text-xs font-semibold'>{{ lead.status }}</span></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan='7' class='py-8 text-center text-gray-400'>No homeowner leads submitted yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+
+        <!-- Contractors Section -->
+        <div class='bg-white rounded-2xl shadow-xl p-8 border border-gray-100'>
+            <h2 class='text-xl font-bold text-gray-900 mb-6 flex items-center justify-between'>
+                <span>Registered Contractors</span>
+                <span class='text-sm bg-slate-100 text-slate-800 px-3 py-1 rounded-full'>{{ contractors|length }} Total</span>
+            </h2>
+
+            <div class='overflow-x-auto'>
+                <table class='w-full text-left border-collapse'>
+                    <thead>
+                        <tr class='border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider'>
+                            <th class='py-3 px-4'>ID</th>
+                            <th class='py-3 px-4'>Company</th>
+                            <th class='py-3 px-4'>Contact</th>
+                            <th class='py-3 px-4'>Phone / Email</th>
+                            <th class='py-3 px-4'>MN License</th>
+                            <th class='py-3 px-4'>Service Radius</th>
+                            <th class='py-3 px-4'>Specialization</th>
+                        </tr>
+                    </thead>
+                    <tbody class='divide-y divide-gray-100 text-sm text-gray-700'>
+                        {% for c in contractors %}
+                        <tr class='hover:bg-slate-50'>
+                            <td class='py-4 px-4 font-semibold'>#{{ c.id }}</td>
+                            <td class='py-4 px-4 font-medium text-gray-900'>{{ c.company_name }}</td>
+                            <td class='py-4 px-4'>{{ c.contact_name }}</td>
+                            <td class='py-4 px-4'><div>{{ c.phone }}</div><div class='text-xs text-gray-400'>{{ c.email }}</div></td>
+                            <td class='py-4 px-4 font-mono text-xs bg-gray-50 px-2 py-1 rounded'>{{ c.license_number }}</td>
+                            <td class='py-4 px-4'>{{ c.service_radius_zip }}</td>
+                            <td class='py-4 px-4'><span class='bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md text-xs font-semibold'>{{ c.service_type }}</span></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan='7' class='py-8 text-center text-gray-400'>No contractors registered yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
 </body>
 </html>
