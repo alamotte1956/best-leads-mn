@@ -3,16 +3,15 @@
 <head>
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>Contractor Signup - Restoration Contractors MN</title>
+    <title>Contractor Portal - Restoration Contractors MN</title>
     <script src='https://cdn.tailwindcss.com'></script>
 </head>
 <body class='bg-slate-50 font-sans'>
-    <!-- Header -->
     <header class='bg-white shadow-sm sticky top-0 z-50'>
         <div class='max-w-7xl mx-auto px-4 py-4 flex justify-between items-center'>
             <div class='flex items-center space-x-2'>
                 <span class='text-2xl font-black text-amber-600'>RestorationMN</span>
-                <span class='text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-semibold'>Pro Partner Network</span>
+                <span class='text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-semibold'>Pro Network</span>
             </div>
             <nav class='flex items-center space-x-6'>
                 <a href='/' class='text-gray-600 hover:text-amber-600 font-medium'>Home</a>
@@ -22,70 +21,72 @@
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class='max-w-4xl mx-auto px-4 py-12'>
-        <div class='bg-white rounded-2xl shadow-xl p-8 md:p-12 border border-gray-100'>
-            <div class='text-center max-w-2xl mx-auto mb-10'>
-                <span class='bg-amber-100 text-amber-800 text-xs font-extrabold uppercase px-3 py-1 rounded-full mb-3 inline-block'>Grow Your Restoration Business</span>
-                <h1 class='text-3xl md:text-4xl font-extrabold text-gray-900 mb-4'>Join Minnesota&apos;s Premier Contractor Network</h1>
-                <p class='text-gray-600'>Receive high-intent emergency restoration leads directly from homeowners across the Twin Cities and Greater Minnesota.</p>
-            </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class='mb-8 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium shadow-sm'>
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class='mb-8 p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium text-center text-sm'>
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
+        <div class='bg-white rounded-3xl shadow-2xl p-8 border border-gray-100'>
+            <span class='bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider'>Join The Twin Cities Network</span>
+            <h1 class='text-3xl sm:text-4xl font-extrabold text-gray-900 mt-4 mb-3'>
+                Grow Your Restoration Business With High-Intent Local Leads
+            </h1>
+            <p class='text-gray-600 mb-8'>
+                Get instant SMS and phone notifications for emergency water, storm, mold, and fire restoration leads in Minneapolis, St. Paul, and surrounding zip codes.
+            </p>
 
-            <form method='POST' action='/contractors/signup' class='space-y-6'>
-                <div class='grid grid-cols-1 md:grid-cols-2 gap-6'>
+            <form method='POST' class='space-y-6'>
+                <div class='grid grid-cols-1 sm:grid-cols-2 gap-6'>
                     <div>
-                        <label class='block text-xs font-semibold uppercase text-gray-600 mb-1'>Company Name</label>
-                        <input type='text' name='company_name' required placeholder='Twin Cities Water Pros' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm'>
+                        <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Company Name</label>
+                        <input type='text' name='company_name' required placeholder='Twin Cities Water Pros' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
                     </div>
                     <div>
-                        <label class='block text-xs font-semibold uppercase text-gray-600 mb-1'>Contact Name</label>
-                        <input type='text' name='contact_name' required placeholder='Dave Miller' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm'>
+                        <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Contact Name</label>
+                        <input type='text' name='contact_name' required placeholder='John Doe' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
                     </div>
                 </div>
 
-                <div class='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                <div class='grid grid-cols-1 sm:grid-cols-2 gap-6'>
                     <div>
-                        <label class='block text-xs font-semibold uppercase text-gray-600 mb-1'>Phone Number</label>
-                        <input type='tel' name='phone' required placeholder='(612) 555-0144' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm'>
+                        <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Phone Number</label>
+                        <input type='tel' name='phone' required placeholder='(612) 555-0199' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
                     </div>
                     <div>
-                        <label class='block text-xs font-semibold uppercase text-gray-600 mb-1'>Email Address</label>
-                        <input type='email' name='email' required placeholder='info@twincitieswaterpros.com' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm'>
+                        <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Business Email</label>
+                        <input type='email' name='email' required placeholder='dispatch@twincitiespros.com' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
                     </div>
                 </div>
 
-                <div class='grid grid-cols-1 md:grid-cols-3 gap-6'>
+                <div class='grid grid-cols-1 sm:grid-cols-3 gap-6'>
                     <div>
-                        <label class='block text-xs font-semibold uppercase text-gray-600 mb-1'>MN License Number</label>
-                        <input type='text' name='license_number' required placeholder='BC998877' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm'>
+                        <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>MN License Number</label>
+                        <input type='text' name='license_number' required placeholder='BC123456' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
                     </div>
                     <div>
-                        <label class='block text-xs font-semibold uppercase text-gray-600 mb-1'>Primary Specialization</label>
-                        <select name='service_type' required class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm'>
-                            <option value='Water Damage Restoration'>Water Damage Restoration</option>
-                            <option value='Roofing & Storm Repair'>Roofing & Storm Repair</option>
-                            <option value='Mold Remediation'>Mold Remediation</option>
-                            <option value='Fire & Smoke Restoration'>Fire & Smoke Restoration</option>
+                        <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Primary Specialty</label>
+                        <select name='service_type' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white'>
+                            <option>Water Damage Restoration</option>
+                            <option>Storm & Wind Repair</option>
+                            <option>Mold Remediation</option>
+                            <option>Fire & Smoke Restoration</option>
+                            <option>Roofing & Siding</option>
                         </select>
                     </div>
                     <div>
-                        <label class='block text-xs font-semibold uppercase text-gray-600 mb-1'>Service ZIP / Radius</label>
-                        <input type='text' name='service_radius_zip' required placeholder='55401' class='w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm'>
+                        <label class='block text-xs font-bold text-gray-700 uppercase mb-1'>Service Radius ZIP</label>
+                        <input type='text' name='service_radius_zip' required placeholder='55401' class='w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:outline-none'>
                     </div>
                 </div>
 
-                <button type='submit' class='w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition duration-200 text-base'>
-                    Submit Contractor Application
+                <button type='submit' class='w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg transition duration-200 text-lg'>
+                    Submit Contractor Application ?
                 </button>
             </form>
         </div>
