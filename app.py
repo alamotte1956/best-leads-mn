@@ -46,6 +46,11 @@ class Contractor(db.Model):
     zip_codes = db.Column(db.String(500), nullable=False)
     exclusive_leads = db.Column(db.Boolean, default=True)
     active = db.Column(db.Boolean, default=False)
+    license_number = db.Column(db.String(50))
+    service_type = db.Column(db.String(100))
+    service_radius_zip = db.Column(db.String(10))
+    rating = db.Column(db.Float)
+    verified = db.Column(db.Boolean)
 
 
 class Lead(db.Model):
@@ -57,6 +62,7 @@ class Lead(db.Model):
     zip_code = db.Column(db.String(10), nullable=False)
     service_needed = db.Column(db.String(100), nullable=False)
     status = db.Column(db.String(50), default="New")
+    description = db.Column(db.Text)
 
 
 # Existing schema retained. create_all creates missing tables, but DOES NOT
