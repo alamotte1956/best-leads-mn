@@ -32,6 +32,10 @@ class Contractor(db.Model):
     rating = db.Column(db.Float, default=5.0)
     verified = db.Column(db.Boolean, default=True)
 
+# Ensure database tables are created on startup in production and local environments
+with app.app_context():
+    db.create_all()
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -77,6 +81,4 @@ def admin():
     return render_template('admin.html', leads=leads, contractors=contractors)
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True, port=8080)
