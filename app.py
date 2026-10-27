@@ -51,6 +51,7 @@ class Contractor(db.Model):
     service_radius_zip = db.Column(db.String(10))
     rating = db.Column(db.Float)
     verified = db.Column(db.Boolean)
+    is_test = db.Column(db.Boolean, nullable=False, default=False)
 
 
 class Lead(db.Model):
