@@ -6,3 +6,6 @@ database-backup-*/
 Procfile.backup
 .env
 .env.*
+
+migration-backup-*/
+legacy-records.json
