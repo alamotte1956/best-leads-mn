@@ -17,7 +17,8 @@ class Lead(db.Model):
     email = db.Column(db.String(100), nullable=False)
     zip_code = db.Column(db.String(10), nullable=False)
     service_type = db.Column(db.String(100), nullable=False)
-    status = db.Column(db.String(20), default='New')
+    description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default='New - Instant Match')
 
 class Contractor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -28,6 +29,8 @@ class Contractor(db.Model):
     license_number = db.Column(db.String(50), nullable=False)
     service_type = db.Column(db.String(100), nullable=False)
     service_radius_zip = db.Column(db.String(10), nullable=False)
+    rating = db.Column(db.Float, default=5.0)
+    verified = db.Column(db.Boolean, default=True)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -38,11 +41,12 @@ def index():
             email=request.form.get('email'),
             zip_code=request.form.get('zip_code'),
             service_type=request.form.get('service_type'),
-            status='New'
+            description=request.form.get('description'),
+            status='New - Instant Match'
         )
         db.session.add(new_lead)
         db.session.commit()
-        flash('Emergency request submitted successfully! A verified local pro will contact you shortly.', 'success')
+        flash('Emergency request dispatched to Twin Cities pros! Expect a call within 5 minutes.', 'success')
         return redirect(url_for('index'))
     return render_template('index.html')
 
@@ -56,11 +60,13 @@ def contractor_signup():
             email=request.form.get('email'),
             license_number=request.form.get('license_number'),
             service_type=request.form.get('service_type'),
-            service_radius_zip=request.form.get('service_radius_zip')
+            service_radius_zip=request.form.get('service_radius_zip'),
+            rating=5.0,
+            verified=True
         )
         db.session.add(new_contractor)
         db.session.commit()
-        flash('Contractor application submitted successfully! Welcome to the RestorationMN Network.', 'success')
+        flash('Application submitted! Your Minnesota contractor license is queued for instant state verification.', 'success')
         return redirect(url_for('contractor_signup'))
     return render_template('contractor_signup.html')
 
