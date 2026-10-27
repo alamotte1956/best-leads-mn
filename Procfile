@@ -1,1 +1,1 @@
-web: gunicorn best_leads_sales:app 
+web: gunicorn app:app

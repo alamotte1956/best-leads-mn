@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+instance/
+database-backup-*/
+*.db
+Procfile.backup
+.env
+.env.*
