@@ -9,3 +9,6 @@ Procfile.backup
 
 migration-backup-*/
 legacy-records.json
+admin-security-backup-*/
+app.py.backup_*
+templates/*.backup*

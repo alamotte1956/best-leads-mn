@@ -33,6 +33,10 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = bool(os.environ.get("RAILWAY_ENVIRONMENT"))
 db = SQLAlchemy(app)
+
+from admin_login_attempt import define_admin_login_attempt
+AdminLoginAttempt = define_admin_login_attempt(db)
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -52,6 +56,10 @@ class Contractor(db.Model):
     rating = db.Column(db.Float)
     verified = db.Column(db.Boolean)
     is_test = db.Column(db.Boolean, nullable=False, default=False)
+    sms_consent = db.Column(db.Boolean, nullable=False, default=False)
+    sms_consent_at = db.Column(db.DateTime(timezone=True))
+    sms_consent_method = db.Column(db.String(50))
+    sms_opted_out_at = db.Column(db.DateTime(timezone=True))
 
 
 class Lead(db.Model):
@@ -68,8 +76,6 @@ class Lead(db.Model):
 
 # Existing schema retained. create_all creates missing tables, but DOES NOT
 # migrate existing tables. Use migrations for future column changes.
-with app.app_context():
-    db.create_all()
 
 
 def clean(value, limit=150):
@@ -95,6 +101,279 @@ def csrf_token():
 
 
 app.jinja_env.globals["csrf_token"] = csrf_token
+
+
+class SmsSuppression(db.Model):
+    """Phone numbers that must not receive automated SMS."""
+    __tablename__ = "sms_suppressions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    phone_normalized = db.Column(
+        db.String(10),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+    opted_out_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False
+    )
+    source = db.Column(
+        db.String(50),
+        nullable=False,
+        default="twilio_stop"
+    )
+
+
+class SmsNotification(db.Model):
+    """Durable record of a planned contractor SMS notification."""
+
+    __tablename__ = "sms_notifications"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    notification_key = db.Column(
+        db.String(150),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    lead_id = db.Column(
+        db.Integer,
+        nullable=False,
+        index=True,
+    )
+
+    contractor_id = db.Column(
+        db.Integer,
+        nullable=False,
+        index=True,
+    )
+
+    status = db.Column(
+        db.String(30),
+        nullable=False,
+        default="pending",
+    )
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    twilio_message_sid = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+with app.app_context():
+    db.create_all()
+
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    from admin_auth import (
+        admin_auth_configured,
+        verify_admin_password,
+    )
+
+    if not admin_auth_configured():
+        return ("Administrator login is not configured.", 503)
+
+    if request.method == "POST":
+        from admin_login_db_guard import (
+            is_locked,
+            record_failure,
+            clear_failures,
+        )
+
+        # Use Flask's direct remote address, not an untrusted
+        # X-Forwarded-For header.
+        identifier = request.remote_addr or "unknown"
+
+        from admin_login_lock import lock_identifier
+
+        try:
+            if db.session.get_bind().dialect.name == "postgresql":
+                lock_identifier(db, identifier)
+        except Exception:
+            db.session.rollback()
+            raise
+
+        if is_locked(db, AdminLoginAttempt, identifier):
+            db.session.rollback()
+            return render_template(
+                "admin_login.html",
+                error="Too many attempts. Try again in 15 minutes.",
+            ), 429
+
+        supplied = request.form.get("_csrf", "")
+        expected = session.get("_csrf", "")
+
+        if not supplied or not secrets.compare_digest(
+            supplied, expected
+        ):
+            db.session.rollback()
+            abort(400)
+
+        password = request.form.get("password", "")
+
+        if verify_admin_password(password):
+            clear_failures(db, AdminLoginAttempt, identifier)
+            db.session.commit()
+            session.clear()
+            from admin_session_security import (
+                current_password_fingerprint,
+            )
+
+            session["admin_authenticated"] = True
+            session["admin_login_at"] = datetime.now(
+                timezone.utc
+            ).timestamp()
+            session["admin_password_fingerprint"] = (
+                current_password_fingerprint()
+            )
+            session.permanent = True
+            return redirect(url_for("admin_dashboard"))
+
+        record_failure(db, AdminLoginAttempt, identifier)
+        db.session.commit()
+
+        return render_template(
+            "admin_login.html",
+            error="Incorrect administrator password.",
+        ), 401
+
+    return render_template(
+        "admin_login.html",
+        error=None,
+    )
+
+
+
+@app.route('/admin/contractors/<int:contractor_id>/status', methods=['POST'])
+def admin_contractor_status(contractor_id):
+    if session.get('admin_authenticated') is not True:
+        return redirect(url_for('admin_login'))
+
+    from admin_session_security import session_password_valid
+    from admin_auth import admin_auth_configured
+
+    login_at = session.get('admin_login_at')
+    now = datetime.now(timezone.utc).timestamp()
+
+    if (
+        not session_password_valid(session.get('admin_password_fingerprint'))
+        or not isinstance(login_at, (int, float))
+        or now < login_at
+        or now - login_at > 3600
+        or not admin_auth_configured()
+    ):
+        session.clear()
+        return redirect(url_for('admin_login'))
+
+    supplied = request.form.get('_csrf', '')
+    expected = session.get('_csrf', '')
+
+    if not supplied or not secrets.compare_digest(supplied, expected):
+        abort(400)
+
+    action = request.form.get('action', '')
+
+    if action not in ('approve', 'deactivate'):
+        abort(400)
+
+    contractor = db.session.get(Contractor, contractor_id)
+
+    if contractor is None:
+        abort(404)
+
+    try:
+        if action == 'approve':
+            contractor.active = True
+            contractor.verified = True
+        else:
+            contractor.active = False
+
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Contractor status update failed')
+        abort(500)
+
+    if action == 'approve':
+        flash('Contractor approved and marked verified.', 'success')
+    else:
+        flash('Contractor deactivated.', 'success')
+
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route("/admin")
+def admin_dashboard():
+    if session.get("admin_authenticated") is not True:
+        return redirect(url_for("admin_login"))
+
+    from admin_session_security import session_password_valid
+
+    if not session_password_valid(
+        session.get("admin_password_fingerprint")
+    ):
+        session.clear()
+        return redirect(url_for("admin_login"))
+
+    login_at = session.get("admin_login_at")
+    if not isinstance(login_at, (int, float)):
+        session.clear()
+        return redirect(url_for("admin_login"))
+
+    elapsed = datetime.now(timezone.utc).timestamp() - login_at
+    if elapsed < 0 or elapsed > 3600:
+        session.clear()
+        return redirect(url_for("admin_login"))
+
+    from admin_auth import admin_auth_configured
+
+    if not admin_auth_configured():
+        session.clear()
+        return ("Administrator login is not configured.", 503)
+
+    leads = Lead.query.order_by(
+        Lead.id.desc()
+    ).limit(200).all()
+
+    verified_contractor_count = Contractor.query.filter_by(
+        active=True,
+        verified=True
+    ).count()
+
+    contractors = Contractor.query.order_by(
+        Contractor.id.desc()
+    ).limit(200).all()
+
+    return render_template(
+        "admin.html",
+        verified_contractor_count=verified_contractor_count,
+        leads=leads,
+        contractors=contractors,
+    )
+
+
+@app.route("/admin/logout", methods=["POST"])
+def admin_logout():
+    supplied = request.form.get("_csrf", "")
+    expected = session.get("_csrf", "")
+
+    if not supplied or not secrets.compare_digest(
+        supplied, expected
+    ):
+        abort(400)
+
+    session.clear()
+    return redirect(url_for("admin_login"))
 
 
 @app.route("/")
@@ -125,18 +404,48 @@ def signup():
             request.form.get("zip_code"), 500
         )
         zip_list = [z.strip() for z in zip_codes.split(",") if z.strip()]
-        if not all([company, contact, valid_email(email), valid_phone(phone)]) or not zip_list or not all(valid_zip(z) for z in zip_list):
+        license_number = clean(request.form.get("license_number"), 50)
+        service_type = clean(request.form.get("service_type"), 100)
+        if not all([company, contact, valid_email(email), valid_phone(phone), license_number, service_type]) or not zip_list or not all(valid_zip(z) for z in zip_list):
             flash("Please enter a valid business name, contact, email, phone and 5-digit ZIP code(s).", "danger")
         else:
             try:
+                consent_requested = request.form.get("sms_consent") == "yes"
+                normalized_phone = normalize_sms_phone(phone)
+
+                suppression = None
+                if normalized_phone:
+                    suppression = SmsSuppression.query.filter_by(
+                        phone_normalized=normalized_phone
+                    ).first()
+
+                consent_given = (
+                    consent_requested
+                    and normalized_phone is not None
+                    and suppression is None
+                )
+
                 contractor = Contractor(
                     company_name=company,
                     contact_name=contact,
                     email=email,
                     phone=phone,
                     zip_codes=",".join(zip_list),
+                    license_number=clean(
+                        request.form.get("license_number"), 50
+                    ),
+                    service_type=clean(
+                        request.form.get("service_type"), 100
+                    ),
+                    service_radius_zip=zip_list[0],
                     exclusive_leads=True,
-                    active=False,  # MUST be approved after verification
+                    active=False,
+                    verified=False,  # MUST be approved after verification
+                    is_test=False,
+                    sms_consent=consent_given,
+                    sms_consent_at=datetime.now(timezone.utc) if consent_given else None,
+                    sms_consent_method="contractor_signup_form_v1" if consent_given else None,
+                    sms_opted_out_at=None,
                 )
                 db.session.add(contractor)
                 db.session.commit()
@@ -191,6 +500,111 @@ def submit_lead():
         db.session.rollback()
         app.logger.exception("Lead creation failed")
         return jsonify({"status": "error", "message": "Unable to save request"}), 500
+
+
+
+def normalize_sms_phone(value):
+    """Normalize US phone numbers to ten digits."""
+    digits = re.sub(r"\D", "", value or "")
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    return digits if len(digits) == 10 else None
+
+
+def contractor_sms_eligible(contractor):
+    """Return True only when automated SMS is permitted."""
+    if contractor is None:
+        return False
+
+    if not (
+        contractor.active is True
+        and contractor.verified is True
+        and contractor.is_test is False
+        and contractor.sms_consent is True
+        and contractor.sms_consent_at is not None
+        and bool(contractor.sms_consent_method)
+        and contractor.sms_opted_out_at is None
+    ):
+        return False
+
+    normalized = normalize_sms_phone(contractor.phone)
+
+    if normalized is None:
+        return False
+
+    suppressed = SmsSuppression.query.filter_by(
+        phone_normalized=normalized
+    ).first()
+
+    return suppressed is None
+
+
+@app.route("/webhooks/twilio/sms", methods=["POST"])
+def twilio_sms_webhook():
+    from sms_optout import is_stop_request, revoke_sms_consent
+    from twilio_security import validate_twilio_request
+
+    # Use the configured public URL, not an untrusted Host header.
+    public_url = (
+        "https://www.restorationcontractorsmn.com"
+        "/webhooks/twilio/sms"
+    )
+
+    signature = request.headers.get("X-Twilio-Signature", "")
+
+    if not validate_twilio_request(
+        public_url,
+        request.form,
+        signature
+    ):
+        abort(403)
+
+    message = request.form.get("Body", "")
+
+    if not is_stop_request(message):
+        return ("", 204)
+
+    sender = normalize_sms_phone(request.form.get("From"))
+
+    if sender is None:
+        return ("", 204)
+
+    try:
+        received_at = datetime.now(timezone.utc)
+
+        # Atomic insert prevents duplicate STOP records when
+        # multiple webhook requests arrive simultaneously.
+        if db.engine.dialect.name == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert
+        elif db.engine.dialect.name == "sqlite":
+            from sqlalchemy.dialects.sqlite import insert
+        else:
+            raise RuntimeError("Unsupported SMS suppression database")
+
+        statement = insert(SmsSuppression).values(
+            phone_normalized=sender,
+            opted_out_at=received_at,
+            source="twilio_stop"
+        ).on_conflict_do_nothing(
+            index_elements=["phone_normalized"]
+        )
+
+        db.session.execute(statement)
+
+        contractors = Contractor.query.all()
+
+        for contractor in contractors:
+            if normalize_sms_phone(contractor.phone) == sender:
+                revoke_sms_consent(contractor, received_at)
+
+        db.session.commit()
+
+        return ("", 204)
+
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("SMS opt-out processing failed")
+        return ("", 500)
 
 
 LEGAL_STYLE = """

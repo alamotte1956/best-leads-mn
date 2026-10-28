@@ -15,8 +15,17 @@
             </div>
             <nav class='flex items-center space-x-6'>
                 <a href='/' class='text-gray-300 hover:text-white font-medium'>Home</a>
-                <a href='/contractors/signup' class='text-gray-300 hover:text-white font-medium'>Contractors</a>
+                <a href='/signup' class='text-gray-300 hover:text-white font-medium'>Contractors</a>
                 <a href='/admin' class='text-amber-400 font-bold'>Admin</a>
+
+                <form method="POST" action="/admin/logout">
+                    <input type="hidden" name="_csrf"
+                           value="{{ csrf_token() }}">
+                    <button type="submit"
+                            class="text-gray-300 hover:text-white font-medium">
+                        Sign Out
+                    </button>
+                </form>
             </nav>
         </div>
     </header>
@@ -29,7 +38,7 @@
             </div>
             <div class='bg-white p-6 rounded-2xl shadow-sm border border-gray-200'>
                 <div class='text-sm font-bold text-gray-400 uppercase tracking-wider mb-1'>Verified Contractors</div>
-                <div class='text-4xl font-extrabold text-gray-900'>{{ contractors|length }}</div>
+                <div class='text-4xl font-extrabold text-gray-900'>{{ verified_contractor_count }}</div>
             </div>
         </div>
 
@@ -54,10 +63,10 @@
                         {% for lead in leads %}
                         <tr>
                             <td class='p-4 font-mono text-gray-500'>#{{ lead.id }}</td>
-                            <td class='p-4 font-bold text-gray-900'>{{ lead.name }}</td>
+                            <td class='p-4 font-bold text-gray-900'>{{ lead.homeowner_name }}</td>
                             <td class='p-4 text-gray-600'>{{ lead.phone }}<br><span class='text-xs text-gray-400'>{{ lead.email }}</span></td>
                             <td class='p-4 font-mono font-medium text-amber-600'>{{ lead.zip_code }}</td>
-                            <td class='p-4 text-gray-800 font-semibold'>{{ lead.service_type }}</td>
+                            <td class='p-4 text-gray-800 font-semibold'>{{ lead.service_needed }}</td>
                             <td class='p-4 text-gray-600 max-w-xs truncate'>{{ lead.description or 'N/A' }}</td>
                             <td class='p-4'><span class='px-2 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full'>{{ lead.status }}</span></td>
                         </tr>
@@ -82,6 +91,8 @@
                             <th class='p-4'>MN License</th>
                             <th class='p-4'>Specialty</th>
                             <th class='p-4'>Rating</th>
+                            <th class='p-4'>Status</th>
+                            <th class='p-4'>Actions</th>
                         </tr>
                     </thead>
                     <tbody class='divide-y divide-gray-200 text-sm'>
@@ -93,7 +104,36 @@
                             <td class='p-4 text-gray-600'>{{ contractor.phone }}<br><span class='text-xs text-gray-400'>{{ contractor.email }}</span></td>
                             <td class='p-4 font-mono text-emerald-600 font-semibold'>{{ contractor.license_number }}</td>
                             <td class='p-4 text-gray-800'>{{ contractor.service_type }}</td>
-                            <td class='p-4 font-bold text-amber-600'>{{ contractor.rating }} ?</td>
+                            <td class='p-4 font-bold text-amber-600'>{{ contractor.rating }}</td>
+                            <td class='p-4'>
+                                {% if contractor.active and contractor.verified %}
+                                <span class='text-green-700 font-bold'>Approved / Verified</span>
+                                {% elif contractor.active %}
+                                <span class='text-orange-700 font-bold'>Active / Unverified</span>
+                                {% else %}
+                                <span class='text-gray-600 font-bold'>Pending / Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td class='p-4'>
+                                <form method='POST'
+                                      action="{{ url_for('admin_contractor_status', contractor_id=contractor.id) }}">
+                                    <input type='hidden' name='_csrf' value="{{ session.get('_csrf', '') }}">
+                                    {% if contractor.active %}
+                                    <input type='hidden' name='action' value='deactivate'>
+                                    <button type='submit'
+                                            class='bg-red-600 text-white px-3 py-2 rounded-lg'>
+                                        Deactivate
+                                    </button>
+                                    {% else %}
+                                    <input type='hidden' name='action' value='approve'>
+                                    <button type='submit'
+                                            class='bg-green-600 text-white px-3 py-2 rounded-lg'
+                                            onclick="return confirm('Have you verified this contractor and their license?')">
+                                        Approve
+                                    </button>
+                                    {% endif %}
+                                </form>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
