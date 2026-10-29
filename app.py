@@ -691,8 +691,13 @@ color:#243342;line-height:1.65}a{color:#1768a0}h1,h2{line-height:1.2}
 .notice{padding:12px;background:#fff5dc;border-left:4px solid #d49c2b}
 </style>
 """
-LEGAL_HEADER = '<p><a href="/">Home</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a></p>'
+LEGAL_HEADER = '<p><a href="/">Home</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/sms-policy">SMS Policy</a></p>'
 
+
+
+@app.route("/sms-policy")
+def sms_policy():
+    return render_template("legal/sms_policy.html")
 
 @app.route("/privacy")
 def privacy():
@@ -718,6 +723,28 @@ def privacy():
         messaging arrangements are in place. Consent to marketing messages is not
         required to request contractor matching. Mobile opt-in information is not
         shared with third parties for their own marketing.</p>
+
+        <h2>Contractor SMS / Text Messaging</h2>
+        <p>Contractors who provide a mobile number and affirmatively
+        select the optional SMS consent checkbox at
+        <a href="/contractor-signup">our contractor registration page</a>
+        may receive operational text messages about lead matching,
+        dispatch, scheduling, service alerts and project updates.
+        This program does not send promotional or marketing texts.
+        Homeowner communications are handled by email.</p>
+        <p>SMS enrollment is voluntary and is not required to register,
+        purchase services or do business with us. Message frequency
+        varies. Message and data rates may apply. Reply STOP to opt out
+        or HELP for assistance. We also honor opt-out requests received
+        through any reasonable method.</p>
+        <p>Mobile opt-in information and SMS consent records are never
+        sold or shared with third parties, affiliates or lead generators
+        for their marketing or promotional purposes. We may share mobile
+        numbers with service providers solely to operate our messaging
+        program, subject to appropriate confidentiality protections.</p>
+        <p>For assistance, call 612-701-7064 or write to Restoration
+        Contractors MN, 10805 173rd St W. #127, Lakeville, MN 55044.
+        See our <a href="/sms-policy">SMS Terms &amp; Conditions</a>.</p>
         <h2>Security and requests</h2>
         <p>We use administrative and technical safeguards, but no system is
         completely secure. To request access, correction or deletion, use the
@@ -738,6 +765,23 @@ def terms():
         <p>Restoration Contractors MN operates a contractor-matching service.
         We do not perform restoration or construction work ourselves through
         this website. Availability of a match is not guaranteed.</p>
+
+        <h2>Contractor Lead Notifications</h2>
+        <p>Eligible contractors may receive lead opportunities based on
+        service category, geographic coverage and account status.
+        Registration does not guarantee any particular lead or revenue.
+        When a lead offer has a displayed acceptance deadline, it may
+        expire if not accepted in time. The planned sequential matching
+        process uses a 15-minute acceptance window.</p>
+        <p>Contractors may voluntarily enroll in operational SMS
+        notifications through an unchecked-by-default consent checkbox.
+        SMS consent is not required to register or use our services.
+        Reply STOP to opt out or HELP for assistance. See our
+        <a href="/sms-policy">SMS Terms &amp; Conditions</a>.</p>
+        <p>Any contractor lead fees or payment obligations must be
+        disclosed in the applicable contractor agreement or accepted
+        pricing terms. Receiving an SMS alone does not authorize
+        an undisclosed charge.</p>
         <h2>Independent contractors</h2>
         <p>Participating contractors are independent businesses. Consumers should
         independently review licenses, insurance, qualifications, estimates,
