@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Lead Offers | Restoration Contractors MN</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 24px;
+            background: #f4f6f9;
+            color: #172b4d;
+        }
+        main { max-width: 1000px; margin: auto; }
+        .offer {
+            background: white;
+            border-radius: 10px;
+            padding: 22px;
+            margin: 18px 0;
+            border: 1px solid #dce2e9;
+        }
+        .timer {
+            font-size: 30px;
+            font-weight: bold;
+            color: #1764ad;
+            font-variant-numeric: tabular-nums;
+        }
+        .expired { color: #b42318; }
+        button {
+            background: #1764ad;
+            color: white;
+            border: 0;
+            border-radius: 6px;
+            padding: 12px 20px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background: #929aa6;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>My Lead Offers</h1>
+    <p>Pending offers must be accepted within 15 minutes.</p>
+
+    {% for offer in offers %}
+    <section class="offer">
+        <h2>Lead #{{ offer.lead_id }}</h2>
+        <p><strong>Service:</strong> {{ offer.service_needed }}</p>
+        <p><strong>ZIP code:</strong> {{ offer.zip_code }}</p>
+
+        <p>Time remaining:</p>
+        <div class="timer"
+             data-offer-id="{{ offer.id }}"
+             data-expires-at="{{ offer.expires_at.isoformat() }}"
+             data-server-now="{{ server_now.isoformat() }}">
+            Calculating...
+        </div>
+
+        <form method="POST"
+              action="{{ url_for('contractor_accept_offer', offer_id=offer.id) }}">
+            <input type="hidden"
+                   name="_csrf"
+                   value="{{ csrf_token() }}">
+            <button type="submit"
+                    {% if offer.status != 'pending' %}disabled{% endif %}>
+                Accept Lead
+            </button>
+        </form>
+    </section>
+    {% else %}
+    <p>You have no lead offers at this time.</p>
+    {% endfor %}
+</main>
+
+<script>
+(function () {
+    const timers = document.querySelectorAll(".timer");
+
+    function updateTimers() {
+        timers.forEach(function (element) {
+            const deadline = Date.parse(element.dataset.expiresAt);
+            const serverNow = Date.parse(element.dataset.serverNow);
+
+            if (!Number.isFinite(deadline) ||
+                !Number.isFinite(serverNow)) {
+                element.textContent = "Unavailable";
+                return;
+            }
+
+            const elapsed = performance.now() -
+                Number(element.dataset.startedAt);
+
+            const remaining = Math.max(
+                0,
+                Math.ceil((deadline - serverNow - elapsed) / 1000)
+            );
+
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+
+            element.textContent =
+                String(minutes).padStart(2, "0") + ":" +
+                String(seconds).padStart(2, "0");
+
+            if (remaining === 0) {
+                element.classList.add("expired");
+
+                const button = element.closest(".offer")
+                    .querySelector("button");
+
+                if (button) button.disabled = true;
+            }
+        });
+    }
+
+    timers.forEach(function (element) {
+        element.dataset.startedAt = performance.now();
+    });
+
+    updateTimers();
+    setInterval(updateTimers, 1000);
+})();
+</script>
+</body>
+</html>

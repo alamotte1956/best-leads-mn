@@ -33,6 +33,13 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = bool(os.environ.get("RAILWAY_ENVIRONMENT"))
 db = SQLAlchemy(app)
+from contractor_login_attempt_model import define_contractor_login_attempt
+ContractorLoginAttempt = define_contractor_login_attempt(db)
+
+from lead_offer_model import define_lead_offer
+LeadOffer = define_lead_offer(db)
+from contractor_password_token_model import define_contractor_password_setup_token
+ContractorPasswordSetupToken = define_contractor_password_setup_token(db)
 
 from admin_login_attempt import define_admin_login_attempt
 AdminLoginAttempt = define_admin_login_attempt(db)
@@ -59,6 +66,7 @@ class Contractor(db.Model):
     sms_consent = db.Column(db.Boolean, nullable=False, default=False)
     sms_consent_at = db.Column(db.DateTime(timezone=True))
     sms_consent_method = db.Column(db.String(50))
+    password_hash = db.Column(db.String(512), nullable=True)
     sms_opted_out_at = db.Column(db.DateTime(timezone=True))
 
 
@@ -94,6 +102,7 @@ class Lead(db.Model):
     service_needed = db.Column(db.String(100), nullable=False)
     status = db.Column(db.String(50), default="New")
     description = db.Column(db.Text)
+    submitted_at = db.Column(db.DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc))
 
 
 # Existing schema retained. create_all creates missing tables, but DOES NOT
@@ -751,3 +760,217 @@ def terms():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+
+# Contractor authentication routes
+@app.route("/contractor/login", methods=["GET", "POST"])
+def contractor_login():
+    import os
+    import secrets
+    from contractor_authentication import authenticate_contractor
+    from contractor_session_security import create_contractor_session_data
+
+    if request.method == "GET":
+        return render_template("contractor_login.html")
+
+    supplied = request.form.get("_csrf", "")
+    expected = session.get("_csrf", "")
+
+    if not supplied or not expected or not secrets.compare_digest(
+        supplied, expected
+    ):
+        abort(400)
+
+    email = request.form.get("email", "")
+    password = request.form.get("password", "")
+
+    lock_secret = os.environ.get("CONTRACTOR_LOGIN_LOCK_SECRET")
+
+    if not lock_secret or len(lock_secret) < 32:
+        app.logger.error("Contractor login secret is not configured")
+        abort(503)
+
+    try:
+        contractor = authenticate_contractor(
+            db.session,
+            Contractor,
+            email,
+            password,
+            lock_secret,
+        )
+
+        contractor_id = contractor.id if contractor is not None else None
+
+        # Commit failed attempts as well as successful resets.
+        db.session.commit()
+
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Contractor authentication failed")
+        abort(503)
+
+    if contractor_id is None:
+        flash("Invalid credentials or account unavailable.", "error")
+        return redirect(url_for("contractor_login"))
+
+    # Preserve administrator session information if present.
+    session.pop("contractor_id", None)
+    session.pop("contractor_login_at", None)
+
+    session.update(create_contractor_session_data(contractor_id))
+
+    return redirect(url_for("contractor_dashboard"))
+
+
+@app.route("/contractor/logout", methods=["POST"])
+def contractor_logout():
+    import secrets
+
+    supplied = request.form.get("_csrf", "")
+    expected = session.get("_csrf", "")
+
+    if not supplied or not expected or not secrets.compare_digest(
+        supplied, expected
+    ):
+        abort(400)
+
+    session.pop("contractor_id", None)
+    session.pop("contractor_login_at", None)
+
+    return redirect(url_for("contractor_login"))
+
+
+@app.route("/contractor/dashboard", methods=["GET"])
+def contractor_dashboard():
+    from datetime import datetime, timezone
+    from contractor_session_security import contractor_session_valid
+
+    contractor_id = session.get("contractor_id")
+
+    if not isinstance(contractor_id, int) or isinstance(contractor_id, bool):
+        return redirect(url_for("contractor_login"))
+
+    contractor = db.session.get(Contractor, contractor_id)
+
+    if not contractor_session_valid(dict(session), contractor):
+        session.pop("contractor_id", None)
+        session.pop("contractor_login_at", None)
+        return redirect(url_for("contractor_login"))
+
+    rows = (
+        db.session.query(LeadOffer, Lead)
+        .join(Lead, Lead.id == LeadOffer.lead_id)
+        .filter(LeadOffer.contractor_id == contractor_id)
+        .order_by(LeadOffer.offered_at.desc())
+        .limit(100)
+        .all()
+    )
+
+    offers = []
+
+    for offer, lead in rows:
+        offers.append({
+            "id": offer.id,
+            "lead_id": offer.lead_id,
+            "service_needed": lead.service_needed,
+            "zip_code": lead.zip_code,
+            "status": offer.status,
+            "expires_at": offer.expires_at,
+        })
+
+    return render_template(
+        "contractor_offers.html",
+        offers=offers,
+        server_now=datetime.now(timezone.utc),
+    )
+
+
+
+@app.route("/contractor/offers/<int:offer_id>/accept", methods=["POST"])
+def contractor_accept_offer(offer_id):
+    import secrets
+
+    from contractor_session_security import contractor_session_valid
+    from contractor_offer_transactions import accept_contractor_offer
+
+    contractor_id = session.get("contractor_id")
+
+    if (
+        not isinstance(contractor_id, int)
+        or isinstance(contractor_id, bool)
+    ):
+        return redirect(url_for("contractor_login"))
+
+    contractor = db.session.get(Contractor, contractor_id)
+
+    if not contractor_session_valid(dict(session), contractor):
+        session.pop("contractor_id", None)
+        session.pop("contractor_login_at", None)
+        return redirect(url_for("contractor_login"))
+
+    supplied = request.form.get("_csrf", "")
+    expected = session.get("_csrf", "")
+
+    if (
+        not supplied
+        or not expected
+        or not secrets.compare_digest(supplied, expected)
+    ):
+        abort(400)
+
+    try:
+        result = accept_contractor_offer(
+            db.session,
+            offer_id,
+            contractor_id,
+        )
+
+        if result is None:
+            db.session.rollback()
+            flash(
+                "Offer unavailable, expired, or already accepted.",
+                "error",
+            )
+            return redirect(url_for("contractor_dashboard"))
+
+        db.session.commit()
+
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Contractor offer acceptance failed")
+        abort(503)
+
+    flash("Lead offer accepted successfully.", "success")
+    return redirect(url_for("contractor_dashboard"))
+
+
+
+@app.route("/admin/owner-command-center", methods=["GET"])
+def owner_command_center():
+    from datetime import datetime, timezone
+    from owner_command_center_data import load_owner_dashboard_data
+
+    if not session.get("admin_authenticated"):
+        return redirect(url_for("admin_login"))
+
+    login_at = session.get("admin_login_at")
+
+    if isinstance(login_at, bool) or not isinstance(login_at, (int, float)):
+        return redirect(url_for("admin_login"))
+
+    elapsed = datetime.now(timezone.utc).timestamp() - login_at
+
+    if not (0 <= elapsed <= 3600):
+        return redirect(url_for("admin_login"))
+
+    data = load_owner_dashboard_data(
+        db,
+        Lead,
+        Contractor,
+        LeadOffer,
+    )
+
+    return render_template(
+        "owner_command_center.html",
+        **data,
+    )

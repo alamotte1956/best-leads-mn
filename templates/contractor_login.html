@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Contractor Login | Restoration Contractors MN</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f3f6fa;
+            margin: 0;
+            padding: 40px 16px;
+            color: #172b4d;
+        }
+        .login-box {
+            max-width: 420px;
+            margin: 40px auto;
+            padding: 32px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.08);
+        }
+        h1 { font-size: 25px; margin-top: 0; }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-top: 18px;
+        }
+        input {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 12px;
+            margin-top: 6px;
+            border: 1px solid #aab5c4;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            margin-top: 24px;
+            padding: 13px;
+            background: #1764ad;
+            color: white;
+            border: 0;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .message {
+            margin: 14px 0;
+            padding: 12px;
+            background: #fff1f0;
+            border-radius: 6px;
+        }
+        .footer {
+            margin-top: 22px;
+            text-align: center;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <main class="login-box">
+        <h1>Contractor Login</h1>
+        <p>Access your Restoration Contractors MN account.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="message" role="alert">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('contractor_login') }}">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+            <label for="email">Email address</label>
+            <input id="email" name="email" type="email"
+                   autocomplete="username" maxlength="254" required>
+
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password"
+                   autocomplete="current-password" required>
+
+            <button type="submit">Sign In</button>
+        </form>
+
+        <div class="footer">
+            <p>Only approved contractors can sign in.</p>
+            <a href="/contractor-signup">Apply as a contractor</a>
+        </div>
+    </main>
+</body>
+</html>

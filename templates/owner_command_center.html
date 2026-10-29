@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Owner's Command Center | Restoration Contractors MN</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 0; background: #f3f6fa; color: #172b4d; }
+header { background: #17365d; color: white; padding: 20px 28px; }
+header h1 { margin: 0; font-size: 25px; }
+main { max-width: 1400px; margin: auto; padding: 24px; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 14px; }
+.metric { background: white; padding: 20px; border-radius: 10px; border: 1px solid #dce2e9; }
+.metric .value { font-size: 28px; font-weight: bold; margin-top: 10px; }
+section { background: white; border-radius: 10px; padding: 20px; margin-top: 22px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 750px; }
+th, td { padding: 12px; border-bottom: 1px solid #e2e7ee; text-align: left; }
+th { background: #eef3f8; }
+.timer { font-weight: bold; font-variant-numeric: tabular-nums; }
+.expired { color: #b42318; }
+.note { color: #52657a; font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+<h1>Owner's Command Center</h1>
+<p>Restoration Contractors MN ? Operations and Financial Monitoring</p>
+</header>
+<main>
+<div class="metrics">
+    <div class="metric">Homeowner Leads Today<div class="value">{{ metrics.leads_today }}</div></div>
+    <div class="metric">Pending Offers<div class="value">{{ metrics.pending_offers }}</div></div>
+    <div class="metric">Accepted Offers<div class="value">{{ metrics.accepted_offers }}</div></div>
+    <div class="metric">Expired Offers<div class="value">{{ metrics.expired_offers }}</div></div>
+    <div class="metric">Confirmed Payments Today<div class="value">{% if metrics.paid_today_cents is not none %}${{ "%.2f"|format(metrics.paid_today_cents / 100) }}{% else %}Not yet connected{% endif %}</div></div>
+    <div class="metric">Refunds Today<div class="value">{% if metrics.refunds_today_cents is not none %}${{ "%.2f"|format(metrics.refunds_today_cents / 100) }}{% else %}Not yet connected{% endif %}</div></div>
+</div>
+
+<section>
+<h2>Homeowner Leads and Contractor Matches</h2>
+<p class="note">Times are calculated using UTC timestamps. The display updates every second.</p>
+<table>
+<thead>
+<tr>
+<th>Lead</th><th>Service</th><th>ZIP</th><th>Homeowner Waiting</th>
+<th>Contractor</th><th>Offer Status</th><th>Acceptance Time Left</th>
+</tr>
+</thead>
+<tbody>
+{% for item in lead_rows %}
+<tr>
+<td>#{{ item.lead_id }}</td>
+<td>{{ item.service_needed }}</td>
+<td>{{ item.zip_code }}</td>
+<td class="timer" data-started-at="{{ item.submitted_at.isoformat() if item.submitted_at else '' }}">?</td>
+<td>{{ item.contractor_name or 'Not matched' }}</td>
+<td>{{ item.offer_status or 'Unmatched' }}</td>
+<td>
+{% if item.offer_status == 'pending' and item.expires_at %}
+<span class="timer" data-expires-at="{{ item.expires_at.isoformat() }}">?</span>
+{% elif item.offer_status == 'accepted' %}
+Accepted
+{% elif item.offer_status == 'declined' %}
+Declined
+{% elif item.offer_status == 'expired' %}
+Expired
+{% elif item.offer_status == 'cancelled' %}
+Cancelled
+{% else %}
+Not offered
+{% endif %}
+</td>
+</tr>
+{% else %}
+<tr><td colspan="7">No leads available.</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</section>
+
+<p class="note">Financial totals must come from confirmed payment transactions, not offer acceptance.</p>
+</main>
+<script>
+(function () {
+    const serverNow = Date.parse({{ server_now.isoformat()|tojson }});
+    const started = performance.now();
+
+    function clock() {
+        const now = serverNow + performance.now() - started;
+
+        document.querySelectorAll("[data-started-at]").forEach(function (element) {
+            const value = Date.parse(element.dataset.startedAt);
+            if (!Number.isFinite(value)) return;
+            const seconds = Math.max(0, Math.floor((now - value) / 1000));
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            element.textContent = hours + "h " + minutes + "m";
+        });
+
+        document.querySelectorAll("[data-expires-at]").forEach(function (element) {
+            const value = Date.parse(element.dataset.expiresAt);
+            if (!Number.isFinite(value)) return;
+            const seconds = Math.max(0, Math.ceil((value - now) / 1000));
+            const minutes = Math.floor(seconds / 60);
+            const remainder = seconds % 60;
+            element.textContent = String(minutes).padStart(2, "0") +
+                ":" + String(remainder).padStart(2, "0");
+            element.classList.toggle("expired", seconds === 0);
+        });
+    }
+
+    clock();
+    setInterval(clock, 1000);
+
+    // owner-dashboard-auto-refresh
+    // Refresh operational data every 10 seconds.
+    // Individual clocks continue updating every second.
+    setInterval(function () {
+        if (document.visibilityState === "visible") {
+            window.location.reload();
+        }
+    }, 10000);
+})();
+</script>
+</body>
+</html>
