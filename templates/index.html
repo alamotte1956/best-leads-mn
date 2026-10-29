@@ -13,6 +13,71 @@
     </style>
 </head>
 <body class='bg-slate-900 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950'>
+
+<!-- RCMN HOMEPAGE SALES HERO -->
+<section id="rcmn-sales-hero"
+  style="background:linear-gradient(125deg,#102b46,#19466a);
+         color:white;padding:70px 24px;
+         text-align:center;position:relative;
+         overflow:hidden;">
+
+  <div style="max-width:1050px;margin:auto;">
+
+    <p style="color:#fbbf24;font-weight:800;
+              letter-spacing:2px;font-size:13px;">
+      MINNESOTA HOMEOWNER CONTRACTOR CONNECTIONS
+    </p>
+
+    <h1 style="font-size:clamp(34px,5vw,62px);
+               font-weight:900;line-height:1.12;
+               margin:22px auto;max-width:900px;">
+      Your Project. The Right Contractor.
+      <span style="color:#fbbf24;">Less Hassle.</span>
+    </h1>
+
+    <p style="font-size:clamp(17px,2vw,22px);
+              color:#e2e8f0;max-width:740px;
+              margin:0 auto 28px;">
+      Roofing, restoration, repairs and more.
+      Tell us about your project and connect
+      with contractors serving your Minnesota area.
+    </p>
+
+    <div style="display:flex;gap:14px;
+                justify-content:center;
+                flex-wrap:wrap;margin-bottom:30px;">
+
+      <a href="#homeowner-request-form"
+         style="background:#f59e0b;color:#102b46;
+                padding:16px 30px;border-radius:9px;
+                font-weight:800;text-decoration:none;">
+        Find Contractors
+      </a>
+
+      <a href="/signup"
+         style="border:2px solid #dbeafe;
+                color:white;padding:14px 28px;
+                border-radius:9px;font-weight:700;
+                text-decoration:none;">
+        I'm a Contractor
+      </a>
+
+    </div>
+
+    <div style="display:flex;justify-content:center;
+                flex-wrap:wrap;gap:22px;
+                color:#e2e8f0;font-size:14px;">
+
+      <span>? Free to submit a request</span>
+      <span>? Minnesota-focused</span>
+      <span>? Multiple service categories</span>
+
+    </div>
+
+  </div>
+</section>
+<!-- END RCMN HOMEPAGE SALES HERO -->
+
     <!-- Top Announcement Bar -->
     <div class='bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white text-xs sm:text-sm font-semibold py-2 px-4 text-center tracking-wide shadow-inner'>
         <span class='inline-flex items-center gap-1.5'>
@@ -118,7 +183,7 @@
                         <h2 class='text-2xl font-extrabold text-white mb-2'>Request Emergency Dispatch</h2>
                         <p class='text-xs sm:text-sm text-slate-400 mb-6'>Connect with top-rated local pros across Minneapolis, St. Paul, and surrounding suburbs.</p>
 
-                        <form method='POST' class='space-y-4'>
+                        <form id='homeowner-request-form' action='/api/leads' method='POST' class='space-y-4'>
                             <div>
                                 <label class='block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1'>Your Full Name</label>
                                 <input type='text' name='name' required placeholder='John Smith' class='w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition'>
@@ -142,13 +207,136 @@
                                 </div>
                                 <div>
                                     <label class='block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1'>Service Needed</label>
-                                    <select name='service_type' class='w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition'>
-                                        <option>Water Damage Restoration</option>
-                                        <option>Storm & Wind Repair</option>
-                                        <option>Mold Remediation</option>
-                                        <option>Fire & Smoke Restoration</option>
-                                        <option>Roofing & Siding</option>
-                                    </select>
+                                    <select name='service_needed' class='w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:outline-none transition'>
+    <option value='' disabled selected>Select a service</option>
+    <optgroup label='Water Damage and Flooding'>
+        <option value='Emergency Water Extraction'>Emergency Water Extraction</option>
+        <option value='Flood Damage Restoration'>Flood Damage Restoration</option>
+        <option value='Burst Pipe Water Damage'>Burst Pipe Water Damage</option>
+        <option value='Basement Flood Cleanup'>Basement Flood Cleanup</option>
+        <option value='Sump Pump Failure Cleanup'>Sump Pump Failure Cleanup</option>
+        <option value='Appliance Leak Cleanup'>Appliance Leak Cleanup</option>
+        <option value='Ceiling Water Damage'>Ceiling Water Damage</option>
+        <option value='Drywall Water Damage'>Drywall Water Damage</option>
+        <option value='Structural Drying'>Structural Drying</option>
+        <option value='Dehumidification'>Dehumidification</option>
+        <option value='Water Damage Inspection'>Water Damage Inspection</option>
+        <option value='Frozen Pipe Damage'>Frozen Pipe Damage</option>
+    </optgroup>
+    <optgroup label='Fire and Smoke Damage'>
+        <option value='Fire Damage Restoration'>Fire Damage Restoration</option>
+        <option value='Smoke Damage Cleanup'>Smoke Damage Cleanup</option>
+        <option value='Soot Removal'>Soot Removal</option>
+        <option value='Fire Odor Removal'>Fire Odor Removal</option>
+        <option value='Contents Cleaning After Fire'>Contents Cleaning After Fire</option>
+        <option value='Board-Up Services'>Board-Up Services</option>
+        <option value='Fire-Damaged Structural Repairs'>Fire-Damaged Structural Repairs</option>
+        <option value='Kitchen Fire Cleanup'>Kitchen Fire Cleanup</option>
+    </optgroup>
+    <optgroup label='Mold and Moisture'>
+        <option value='Mold Inspection'>Mold Inspection</option>
+        <option value='Mold Testing'>Mold Testing</option>
+        <option value='Mold Remediation'>Mold Remediation</option>
+        <option value='Black Mold Removal'>Black Mold Removal</option>
+        <option value='Attic Mold Removal'>Attic Mold Removal</option>
+        <option value='Basement Mold Removal'>Basement Mold Removal</option>
+        <option value='Crawl Space Mold Removal'>Crawl Space Mold Removal</option>
+        <option value='Moisture Intrusion Repair'>Moisture Intrusion Repair</option>
+    </optgroup>
+    <optgroup label='Storm and Weather Damage'>
+        <option value='Storm Damage Restoration'>Storm Damage Restoration</option>
+        <option value='Wind Damage Repair'>Wind Damage Repair</option>
+        <option value='Hail Damage Repair'>Hail Damage Repair</option>
+        <option value='Tornado Damage Repair'>Tornado Damage Repair</option>
+        <option value='Ice Dam Removal'>Ice Dam Removal</option>
+        <option value='Ice Dam Water Damage'>Ice Dam Water Damage</option>
+        <option value='Snow and Ice Damage Repair'>Snow and Ice Damage Repair</option>
+        <option value='Fallen Tree Damage'>Fallen Tree Damage</option>
+        <option value='Emergency Tarping'>Emergency Tarping</option>
+        <option value='Storm Debris Removal'>Storm Debris Removal</option>
+    </optgroup>
+    <optgroup label='Roofing and Exterior'>
+        <option value='Roof Leak Repair'>Roof Leak Repair</option>
+        <option value='Roof Replacement'>Roof Replacement</option>
+        <option value='Roof Inspection'>Roof Inspection</option>
+        <option value='Shingle Repair'>Shingle Repair</option>
+        <option value='Flat Roof Repair'>Flat Roof Repair</option>
+        <option value='Commercial Roofing'>Commercial Roofing</option>
+        <option value='Siding Repair'>Siding Repair</option>
+        <option value='Siding Replacement'>Siding Replacement</option>
+        <option value='Gutter Repair'>Gutter Repair</option>
+        <option value='Gutter Replacement'>Gutter Replacement</option>
+        <option value='Window Replacement'>Window Replacement</option>
+        <option value='Exterior Door Repair'>Exterior Door Repair</option>
+    </optgroup>
+    <optgroup label='Plumbing and Sewer'>
+        <option value='Emergency Plumbing'>Emergency Plumbing</option>
+        <option value='Pipe Leak Repair'>Pipe Leak Repair</option>
+        <option value='Burst Pipe Repair'>Burst Pipe Repair</option>
+        <option value='Sewer Backup Cleanup'>Sewer Backup Cleanup</option>
+        <option value='Sewer Line Repair'>Sewer Line Repair</option>
+        <option value='Drain Cleaning'>Drain Cleaning</option>
+        <option value='Water Heater Leak Repair'>Water Heater Leak Repair</option>
+        <option value='Toilet Overflow Cleanup'>Toilet Overflow Cleanup</option>
+        <option value='Sump Pump Repair'>Sump Pump Repair</option>
+        <option value='Sump Pump Installation'>Sump Pump Installation</option>
+    </optgroup>
+    <optgroup label='Electrical and HVAC'>
+        <option value='Emergency Electrical Repair'>Emergency Electrical Repair</option>
+        <option value='Electrical Panel Repair'>Electrical Panel Repair</option>
+        <option value='Water-Damaged Electrical Systems'>Water-Damaged Electrical Systems</option>
+        <option value='Electrical Rewiring'>Electrical Rewiring</option>
+        <option value='Furnace Repair'>Furnace Repair</option>
+        <option value='Air Conditioning Repair'>Air Conditioning Repair</option>
+        <option value='HVAC Replacement'>HVAC Replacement</option>
+        <option value='Duct Cleaning'>Duct Cleaning</option>
+        <option value='HVAC Water Damage'>HVAC Water Damage</option>
+        <option value='Ventilation Repair'>Ventilation Repair</option>
+    </optgroup>
+    <optgroup label='Basement and Foundation'>
+        <option value='Basement Waterproofing'>Basement Waterproofing</option>
+        <option value='Foundation Crack Repair'>Foundation Crack Repair</option>
+        <option value='Foundation Water Intrusion'>Foundation Water Intrusion</option>
+        <option value='Foundation Structural Repair'>Foundation Structural Repair</option>
+        <option value='Crawl Space Encapsulation'>Crawl Space Encapsulation</option>
+        <option value='Drain Tile Installation'>Drain Tile Installation</option>
+        <option value='Egress Window Leak Repair'>Egress Window Leak Repair</option>
+    </optgroup>
+    <optgroup label='Interior and Structural Repairs'>
+        <option value='Drywall Repair'>Drywall Repair</option>
+        <option value='Ceiling Repair'>Ceiling Repair</option>
+        <option value='Flooring Replacement'>Flooring Replacement</option>
+        <option value='Hardwood Floor Restoration'>Hardwood Floor Restoration</option>
+        <option value='Carpet Removal'>Carpet Removal</option>
+        <option value='Insulation Replacement'>Insulation Replacement</option>
+        <option value='Framing Repair'>Framing Repair</option>
+        <option value='Structural Damage Assessment'>Structural Damage Assessment</option>
+        <option value='Kitchen Reconstruction'>Kitchen Reconstruction</option>
+        <option value='Bathroom Reconstruction'>Bathroom Reconstruction</option>
+        <option value='Full Property Reconstruction'>Full Property Reconstruction</option>
+    </optgroup>
+    <optgroup label='Environmental and Specialty Cleanup'>
+        <option value='Biohazard Cleanup'>Biohazard Cleanup</option>
+        <option value='Trauma Scene Cleanup'>Trauma Scene Cleanup</option>
+        <option value='Hoarding Cleanup'>Hoarding Cleanup</option>
+        <option value='Odor Removal'>Odor Removal</option>
+        <option value='Asbestos Abatement'>Asbestos Abatement</option>
+        <option value='Lead Paint Abatement'>Lead Paint Abatement</option>
+        <option value='Vandalism Cleanup'>Vandalism Cleanup</option>
+        <option value='Graffiti Removal'>Graffiti Removal</option>
+        <option value='Commercial Property Cleanup'>Commercial Property Cleanup</option>
+    </optgroup>
+    <optgroup label='Emergency and Property Services'>
+        <option value='24-Hour Emergency Restoration'>24-Hour Emergency Restoration</option>
+        <option value='Emergency Board-Up'>Emergency Board-Up</option>
+        <option value='Emergency Property Stabilization'>Emergency Property Stabilization</option>
+        <option value='Temporary Roof Protection'>Temporary Roof Protection</option>
+        <option value='Contents Pack-Out and Storage'>Contents Pack-Out and Storage</option>
+        <option value='Property Damage Assessment'>Property Damage Assessment</option>
+        <option value='Commercial Disaster Restoration'>Commercial Disaster Restoration</option>
+        <option value='Other Restoration Service'>Other Restoration Service</option>
+    </optgroup>
+</select>
                                 </div>
                             </div>
 
@@ -158,14 +346,64 @@
                             </div>
 
                             <button type='submit' class='w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold py-4 rounded-xl shadow-xl shadow-amber-500/20 transition duration-200 text-base flex items-center justify-center gap-2'>
-                                <span>Get Instant Pro Match Now</span>
+                                <span>Request a Restoration Contractor</span>
                                 &rarr;
                             </button>
                         </form>
+<p id='homeowner-form-message' role='status' aria-live='polite' class='mt-4 text-sm'></p>
                     </div>
                 </div>
             </div>
         </div>
     </main>
+
+<script>
+document.getElementById('homeowner-request-form').addEventListener('submit', async function(event) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    const message = document.getElementById('homeowner-form-message');
+    const formData = new FormData(form);
+
+    const payload = {
+        homeowner_name: formData.get('name'),
+        phone: formData.get('phone'),
+        email: formData.get('email'),
+        zip_code: formData.get('zip_code'),
+        service_needed: formData.get('service_needed'),
+        description: formData.get('description')
+    };
+
+    button.disabled = true;
+    message.textContent = 'Submitting your request...';
+    message.style.color = '#cbd5e1';
+
+    try {
+        const response = await fetch('/api/leads', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || result.status !== 'success') {
+            throw new Error(result.message || 'Unable to submit request.');
+        }
+
+        message.textContent = 'Your request has been received. Contractor matching is pending.';
+        message.style.color = '#86efac';
+        form.reset();
+
+    } catch (error) {
+        message.textContent = error.message || 'Please try again later.';
+        message.style.color = '#fca5a5';
+    } finally {
+        button.disabled = false;
+    }
+});
+</script>
+
 </body>
 </html>

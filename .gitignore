@@ -12,3 +12,8 @@ legacy-records.json
 admin-security-backup-*/
 app.py.backup_*
 templates/*.backup*
+
+# Local legal-policy backups
+legal_backups/
+
+landing_backups/

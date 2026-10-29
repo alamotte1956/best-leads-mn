@@ -62,6 +62,28 @@ class Contractor(db.Model):
     sms_opted_out_at = db.Column(db.DateTime(timezone=True))
 
 
+class ContractorService(db.Model):
+    """Additional services offered by a registered contractor."""
+    __tablename__ = "contractor_services"
+
+    id = db.Column(db.Integer, primary_key=True)
+    contractor_id = db.Column(
+        db.Integer,
+        db.ForeignKey("contractors.id"),
+        nullable=False,
+        index=True
+    )
+    service_name = db.Column(db.String(100), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "contractor_id",
+            "service_name",
+            name="uq_contractor_service"
+        ),
+    )
+
+
 class Lead(db.Model):
     __tablename__ = "leads"
     id = db.Column(db.Integer, primary_key=True)
@@ -388,6 +410,7 @@ def health():
 
 @app.route("/signup", methods=["GET", "POST"])
 @app.route("/contractors/apply", methods=["GET", "POST"])
+@app.route("/contractor-signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
         supplied = request.form.get("_csrf", "")
@@ -406,6 +429,11 @@ def signup():
         zip_list = [z.strip() for z in zip_codes.split(",") if z.strip()]
         license_number = clean(request.form.get("license_number"), 50)
         service_type = clean(request.form.get("service_type"), 100)
+        additional_services = list(dict.fromkeys(
+            clean(value, 100)
+            for value in request.form.getlist("additional_services")
+            if clean(value, 100)
+        ))
         if not all([company, contact, valid_email(email), valid_phone(phone), license_number, service_type]) or not zip_list or not all(valid_zip(z) for z in zip_list):
             flash("Please enter a valid business name, contact, email, phone and 5-digit ZIP code(s).", "danger")
         else:
@@ -448,6 +476,20 @@ def signup():
                     sms_opted_out_at=None,
                 )
                 db.session.add(contractor)
+                db.session.flush()
+
+                selected_services = list(dict.fromkeys(
+                    [service_type] + additional_services
+                ))
+
+                for service_name in selected_services:
+                    db.session.add(
+                        ContractorService(
+                            contractor_id=contractor.id,
+                            service_name=service_name
+                        )
+                    )
+
                 db.session.commit()
                 flash("Application received. Approval is required before leads can be assigned.", "success")
                 return redirect(url_for("signup"))
@@ -462,19 +504,41 @@ def signup():
     return render_template("contractor_signup.html")
 
 
+@app.route("/request-received")
+def homeowner_request_received():
+    return (
+        "<h1>Request received</h1>"
+        "<p>Thank you. Your contractor request has been received. "
+        "Contractor matching is pending.</p>"
+        '<p><a href="/">Return to homepage</a></p>'
+    )
+
+
 @app.route("/api/leads", methods=["POST"])
 def submit_lead():
-    if not request.is_json:
-        return jsonify({"status": "error", "message": "JSON body required"}), 415
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"status": "error", "message": "Invalid JSON"}), 400
+    is_json_submission = request.is_json
 
-    name = clean(data.get("homeowner_name"), 100)
+    if is_json_submission:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"status": "error", "message": "Invalid JSON"}), 400
+    elif request.mimetype in (
+        "application/x-www-form-urlencoded",
+        "multipart/form-data",
+    ):
+        data = request.form
+    else:
+        return jsonify({
+            "status": "error",
+            "message": "Unsupported submission format"
+        }), 415
+
+    name = clean(data.get("homeowner_name") or data.get("name"), 100)
     phone = clean(data.get("phone"), 20)
     email = clean(data.get("email"), 120).lower()
     zip_code = clean(data.get("zip_code"), 10)
     service = clean(data.get("service_needed"), 100)
+    description = clean(data.get("description"), 5000)
 
     if not name or not valid_phone(phone) or not valid_zip(zip_code) or not service:
         return jsonify({"status": "error", "message": "Valid name, phone, ZIP and service are required"}), 400
@@ -484,12 +548,16 @@ def submit_lead():
     try:
         lead = Lead(
             homeowner_name=name, phone=phone, email=email or None,
-            zip_code=zip_code, service_needed=service, status="New"
+            zip_code=zip_code, service_needed=service,
+            description=description or None, status="New"
         )
         db.session.add(lead)
         db.session.commit()
         # No automatic assignment yet. Do not report "matched" when no
         # exclusive assignment has actually been created.
+        if not is_json_submission:
+            return redirect(url_for("homeowner_request_received"))
+
         return jsonify({
             "status": "success",
             "message": "Request received. Contractor matching is pending.",
