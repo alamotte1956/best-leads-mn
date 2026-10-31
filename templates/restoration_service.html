@@ -10,7 +10,7 @@
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Arial, sans-serif; color: #17283d; background: #f5f8fc; }
-        header { background: #10253e; padding: 14px 5%; }
+        header { background: #f1f5f9; padding: 12px 24px; border-bottom: 1px solid #e2e8f0; }
         header img { width: 280px; max-width: 100%; height: auto; }
         .hero { position: relative; min-height: 420px; display: flex; align-items: center; background: #142b46; color: white; overflow: hidden; }
         .hero-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -42,9 +42,7 @@
 </head>
 <body>
 <header>
-    <a href="/" aria-label="Restoration Contractors MN home">
-        <img src="{{ url_for('static', filename='images/rcmn-logo.png') }}" alt="Restoration Contractors MN logo">
-    </a>
+    {% include 'partials/brand_logo.html' %}
 </header>
 
 <section class="hero">
