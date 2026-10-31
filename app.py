@@ -683,7 +683,7 @@ LEGAL_STYLE = """
 <style>
 body{font-family:Arial,sans-serif;max-width:850px;margin:45px auto;padding:0 20px;
 color:#243342;line-height:1.65}a{color:#1768a0}h1,h2{line-height:1.2}
-.notice{padding:12px;background:#fff5dc;border-left:4px solid #d49c2b}
+.notice{padding:14px;background:#ffffff;border:1px solid #dce5ee;border-left:4px solid #1768a0;border-radius:8px;box-shadow:0 3px 12px rgba(16,37,62,.05)}
 </style>
 """
 LEGAL_HEADER = "{% include 'partials/brand_header.html' %}\n" + '<p><a href="/">Home</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/sms-policy">SMS Policy</a></p>'
