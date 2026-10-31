@@ -4,15 +4,15 @@ import os
 from datetime import datetime, timezone
 from sqlalchemy import func
 
-from app import (
-    app, db, Lead, LeadOffer,
-    Contractor, ContractorService,
-)
 from contractor_offer_advancement import advance_sequential_offer
 
 
 def process_matching_batch():
     """Process leads sequentially, committing each lead separately."""
+
+    # worker-live-execution-guard
+    if os.environ.get("ENABLE_LIVE_MATCHING") != "YES":
+        raise RuntimeError("Live matching is disabled.")
 
     activation_text = os.environ.get(
         "MATCHING_ACTIVATION_UTC", ""
@@ -33,6 +33,11 @@ def process_matching_batch():
         )
 
     activation = activation.astimezone(timezone.utc)
+
+    from app import (
+        app, db, Lead, LeadOffer,
+        Contractor, ContractorService,
+    )
 
     with app.app_context():
         leads = (
