@@ -798,12 +798,11 @@ def terms():
 
 
 # BEGIN RCMN RESTORATION LANDING PAGES
-from restoration_landing_pages import restoration_landing_pages
+from restoration_landing_legacy import restoration_landing_pages
 app.register_blueprint(restoration_landing_pages)
+
 # END RCMN RESTORATION LANDING PAGES
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 
 # Contractor authentication routes
@@ -1078,3 +1077,44 @@ def owner_command_center():
         "owner_command_center.html",
         **data,
     )
+
+# RESTORATION_SERVICE_LANDING_ROUTES_V1
+from restoration_landing_pages import LANDING_PAGES
+
+LANDING_PHOTOS = {
+    "water-damage": "photo-1581578731548-c64695cc6952",
+    "storm-hail-damage": "photo-1500673922987-e212871fec22",
+    "roof-repair": "photo-1635424710928-0544e8512eae",
+    "basement-flooding": "photo-1523413651479-597eb2da0ad6",
+    "mold-remediation": "photo-1584622650111-993a426fbf0a",
+    "fire-smoke-damage": "photo-1487958449943-2429e8be8625",
+    "sewer-backup": "photo-1504307651254-35680f356dfd",
+    "frozen-pipes": "photo-1457269449834-928af64c684d",
+    "siding-repair": "photo-1600596542815-ffad4c1539a9",
+    "emergency-tarping": "photo-1500530855697-b586d89ba3ee",
+}
+
+@app.route("/services/<slug>", methods=["GET"])
+def restoration_service_page(slug):
+    page = LANDING_PAGES.get(slug)
+
+    if page is None:
+        abort(404)
+
+    photo_id = LANDING_PHOTOS[slug]
+    photo = (
+        "https://images.unsplash.com/"
+        + photo_id
+        + "?auto=format&fit=crop&w=1600&q=85"
+    )
+
+    return render_template(
+        "restoration_service.html",
+        slug=slug,
+        page=page,
+        photo=photo,
+        all_pages=LANDING_PAGES,
+    )
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

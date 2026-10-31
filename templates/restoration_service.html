@@ -1,0 +1,117 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page.title }} | Restoration Contractors MN</title>
+    <meta name="description" content="{{ page.description }}">
+    <link rel="canonical" href="{{ request.url_root.rstrip('/') }}/services/{{ slug }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/rcmn-logo.png') }}">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; color: #17283d; background: #f5f8fc; }
+        header { background: #10253e; padding: 14px 5%; }
+        header img { width: 280px; max-width: 100%; height: auto; }
+        .hero { position: relative; min-height: 420px; display: flex; align-items: center; background: #142b46; color: white; overflow: hidden; }
+        .hero-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .hero-shade { position: absolute; inset: 0; background: linear-gradient(90deg,rgba(9,28,49,.94),rgba(9,28,49,.55)); }
+        .hero-content { position: relative; width: min(1100px,90%); margin: auto; padding: 65px 0; }
+        .eyebrow { color: #f3b94e; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
+        h1 { font-size: clamp(32px,5vw,54px); line-height: 1.12; max-width: 760px; }
+        .hero p { max-width: 620px; font-size: 19px; line-height: 1.6; }
+        .button { display: inline-block; background: #eab34c; color: #10253e; text-decoration: none; font-weight: bold; padding: 16px 26px; border-radius: 7px; border: 0; cursor: pointer; }
+        .container { width: min(1100px,90%); margin: auto; }
+        .content { display: grid; grid-template-columns: 1fr 420px; gap: 40px; padding: 55px 0; align-items: start; }
+        .panel { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,.07); }
+        h2 { font-size: 29px; margin-top: 0; }
+        p { line-height: 1.7; }
+        label { display: block; font-weight: bold; margin: 14px 0 6px; }
+        input, textarea { width: 100%; padding: 12px; border: 1px solid #b9c5d2; border-radius: 6px; font: inherit; }
+        textarea { min-height: 105px; resize: vertical; }
+        .note { font-size: 13px; color: #526276; }
+        .services { padding: 30px 0 60px; }
+        .links { display: flex; flex-wrap: wrap; gap: 10px; }
+        .links a { color: #164c83; background: white; padding: 10px 14px; border-radius: 6px; text-decoration: none; }
+        footer { background: #10253e; color: white; text-align: center; padding: 28px; }
+        footer a { color: #f3c16b; }
+        @media (max-width: 800px) {
+            .content { grid-template-columns: 1fr; }
+            header img { width: 230px; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <a href="/" aria-label="Restoration Contractors MN home">
+        <img src="{{ url_for('static', filename='images/rcmn-logo.png') }}" alt="Restoration Contractors MN logo">
+    </a>
+</header>
+
+<section class="hero">
+    <img class="hero-photo" src="{{ photo }}" alt="{{ page.title }} service photograph">
+    <div class="hero-shade"></div>
+    <div class="hero-content">
+        <div class="eyebrow">Twin Cities, Minnesota</div>
+        <h1>{{ page.headline }}</h1>
+        <p>{{ page.description }}</p>
+        <a class="button" href="#request">Request Contractor Assistance</a>
+    </div>
+</section>
+
+<main class="container">
+    <section class="content">
+        <div>
+            <h2>Find Help for {{ page.title }}</h2>
+            <p>{{ page.description }}</p>
+            <p>Restoration Contractors MN helps homeowners submit requests for restoration and property repair services in the Twin Cities area.</p>
+            <h2>How It Works</h2>
+            <p><strong>1.</strong> Tell us what happened and where the property is located.</p>
+            <p><strong>2.</strong> We receive your request and review the service needed.</p>
+            <p><strong>3.</strong> Contractor matching is pending and is not guaranteed.</p>
+            <p>For immediate danger, leave the affected area and contact the appropriate emergency service.</p>
+        </div>
+
+        <div class="panel" id="request">
+            <h2>Request Contractor Assistance</h2>
+            <form action="/api/leads" method="POST">
+                <label for="name">Full Name</label>
+                <input id="name" name="name" autocomplete="name" maxlength="100" required>
+
+                <label for="phone">Phone Number</label>
+                <input id="phone" name="phone" type="tel" autocomplete="tel" required>
+
+                <label for="email">Email Address (optional)</label>
+                <input id="email" name="email" type="email" autocomplete="email">
+
+                <label for="zip_code">Property ZIP Code</label>
+                <input id="zip_code" name="zip_code" inputmode="numeric" pattern="[0-9]{5}(-[0-9]{4})?" required>
+
+                <input type="hidden" name="service_needed" value="{{ page.service }}">
+
+                <label for="description">Describe the Damage</label>
+                <textarea id="description" name="description" maxlength="5000" placeholder="What happened? When did the damage occur?"></textarea>
+
+                <p class="note">Submitting a request does not guarantee contractor availability or an immediate response.</p>
+                <button class="button" type="submit">Submit My Request</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="services">
+        <h2>Other Restoration Services</h2>
+        <div class="links">
+            {% for other_slug, other_page in all_pages.items() %}
+                {% if other_slug != slug %}
+                    <a href="{{ url_for('restoration_service_page', slug=other_slug) }}">{{ other_page.title }}</a>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </section>
+</main>
+
+<footer>
+    <p>Restoration Contractors MN | Twin Cities, Minnesota</p>
+    <p><a href="/privacy">Privacy Policy</a> | <a href="/terms">Terms of Service</a></p>
+</footer>
+</body>
+</html>
