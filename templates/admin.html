@@ -7,22 +7,22 @@
     <script src='https://cdn.tailwindcss.com'></script>
 </head>
 <body class='bg-slate-100 font-sans'>
-    <header class='bg-slate-900 text-white shadow-lg sticky top-0 z-50'>
-        <div class='max-w-7xl mx-auto px-4 py-4 flex justify-between items-center'>
-            <div class='flex items-center space-x-3'>
-                <span class='text-2xl font-black text-amber-500'>Restoration Contractors MN</span>
+    <header class='bg-slate-100 text-slate-900 shadow-lg sticky top-0 z-50'>
+        <div class='w-full px-3 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-4'>
+            <div class='flex flex-wrap items-center gap-3'>
+                {% include 'partials/brand_logo.html' %}
                 <span class='text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-semibold'>Command Center</span>
             </div>
-            <nav class='flex items-center space-x-6'>
-                <a href='/' class='text-gray-300 hover:text-white font-medium'>Home</a>
-                <a href='/signup' class='text-gray-300 hover:text-white font-medium'>Contractors</a>
-                <a href='/admin' class='text-amber-400 font-bold'>Admin</a>
+            <nav class='flex flex-wrap items-center gap-4'>
+                <a href='/' class='text-slate-700 hover:text-amber-700 font-medium'>Home</a>
+                <a href='/signup' class='text-slate-700 hover:text-amber-700 font-medium'>Contractors</a>
+                <a href='/admin' class='text-amber-700 font-bold'>Admin</a>
 
                 <form method="POST" action="/admin/logout">
                     <input type="hidden" name="_csrf"
                            value="{{ csrf_token() }}">
                     <button type="submit"
-                            class="text-gray-300 hover:text-white font-medium">
+                            class="text-slate-700 hover:text-amber-700 font-medium">
                         Sign Out
                     </button>
                 </form>

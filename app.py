@@ -515,12 +515,7 @@ def signup():
 
 @app.route("/request-received")
 def homeowner_request_received():
-    return (
-        "<h1>Request received</h1>"
-        "<p>Thank you. Your contractor request has been received. "
-        "Contractor matching is pending.</p>"
-        '<p><a href="/">Return to homepage</a></p>'
-    )
+    return render_template("request_received.html")
 
 
 @app.route("/api/leads", methods=["POST"])
@@ -691,7 +686,7 @@ color:#243342;line-height:1.65}a{color:#1768a0}h1,h2{line-height:1.2}
 .notice{padding:12px;background:#fff5dc;border-left:4px solid #d49c2b}
 </style>
 """
-LEGAL_HEADER = '<p><a href="/">Home</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/sms-policy">SMS Policy</a></p>'
+LEGAL_HEADER = "{% include 'partials/brand_header.html' %}\n" + '<p><a href="/">Home</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/sms-policy">SMS Policy</a></p>'
 
 
 
@@ -702,7 +697,7 @@ def sms_policy():
 @app.route("/privacy")
 def privacy():
     return render_template_string(
-        LEGAL_STYLE + LEGAL_HEADER + """
+        LEGAL_STYLE + '\n<style>\nbody { max-width:none; margin:0; padding:0; }\nbody > p, body > h1, body > h2, body > ul, body > ol {\n  box-sizing:border-box; max-width:890px; margin-left:auto; margin-right:auto; padding-left:20px; padding-right:20px;\n}\n</style>\n' + LEGAL_HEADER + """
         <h1>Privacy Policy</h1>
         <p class="notice"><strong>Draft for review:</strong> Confirm the contact address,
         retention practices, third-party providers and consent disclosures before
@@ -757,7 +752,7 @@ def privacy():
 @app.route("/terms")
 def terms():
     return render_template_string(
-        LEGAL_STYLE + LEGAL_HEADER + """
+        LEGAL_STYLE + '\n<style>\nbody { max-width:none; margin:0; padding:0; }\nbody > p, body > h1, body > h2, body > ul, body > ol {\n  box-sizing:border-box; max-width:890px; margin-left:auto; margin-right:auto; padding-left:20px; padding-right:20px;\n}\n</style>\n' + LEGAL_HEADER + """
         <h1>Terms of Service</h1>
         <p class="notice"><strong>Draft for review:</strong> Have these terms checked
         against your actual operations and applicable law before launch.</p>

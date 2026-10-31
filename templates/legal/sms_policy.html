@@ -11,8 +11,14 @@ a{color:#1768a0}h1,h2{line-height:1.3}
 nav{margin-bottom:25px}footer{margin-top:35px;border-top:1px solid #ddd;
 padding-top:15px}
 </style>
+<style>
+body { max-width:none; margin:0; padding:0; }
+.rcmn-policy-content { box-sizing:border-box; max-width:890px; margin:35px auto; padding:0 20px; }
+</style>
 </head>
 <body>
+{% include 'partials/brand_header.html' %}
+<div class="rcmn-policy-content">
 <nav><a href="/">Home</a> |
 <a href="/privacy">Privacy Policy</a> |
 <a href="/terms">Terms of Service</a> |
@@ -92,5 +98,6 @@ Phone: 612-701-7064</p>
 <a href="/terms">Terms</a> |
 <a href="/contractor-signup">Contractor Registration</a>
 </footer>
+</div>
 </body>
 </html>

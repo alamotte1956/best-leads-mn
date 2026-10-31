@@ -9,7 +9,7 @@
         body {
             margin: 0;
             min-height: 100vh;
-            display: flex;
+            display: block;
             justify-content: center;
             align-items: center;
             background: #f1f5f9;
@@ -17,9 +17,9 @@
             color: #0f172a;
         }
         .login-card {
-            width: 100%;
+            width: calc(100% - 32px);
             max-width: 420px;
-            margin: 20px;
+            margin: 40px auto;
             padding: 36px;
             background: white;
             border-radius: 14px;
@@ -59,6 +59,7 @@
     </style>
 </head>
 <body>
+{% include 'partials/brand_header.html' %}
     <main class="login-card">
         <h1>Administrator Login</h1>
         <p>Restoration Contractors MN<br>Secure Administration</p>

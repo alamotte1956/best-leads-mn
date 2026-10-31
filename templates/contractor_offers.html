@@ -8,11 +8,11 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 24px;
+            padding: 0;
             background: #f4f6f9;
             color: #172b4d;
         }
-        main { max-width: 1000px; margin: auto; }
+        main { max-width: 1000px; margin: auto; padding: 24px; }
         .offer {
             background: white;
             border-radius: 10px;
@@ -42,6 +42,7 @@
     </style>
 </head>
 <body>
+{% include 'partials/brand_header.html' %}
 <main>
     <h1>My Lead Offers</h1>
     <p>Pending offers must be accepted within 15 minutes.</p>

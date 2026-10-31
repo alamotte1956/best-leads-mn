@@ -9,10 +9,12 @@
             font-family: Arial, sans-serif;
             background: #f3f6fa;
             margin: 0;
-            padding: 40px 16px;
+            padding: 0;
             color: #172b4d;
         }
         .login-box {
+            box-sizing: border-box;
+            width: calc(100% - 32px);
             max-width: 420px;
             margin: 40px auto;
             padding: 32px;
@@ -60,6 +62,7 @@
     </style>
 </head>
 <body>
+{% include 'partials/brand_header.html' %}
     <main class="login-box">
         <h1>Contractor Login</h1>
         <p>Access your Restoration Contractors MN account.</p>

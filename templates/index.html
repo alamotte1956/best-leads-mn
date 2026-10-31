@@ -17,9 +17,7 @@
     <!-- Navigation Bar -->
     <header class='bg-slate-100/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50'>
         <div class='w-full px-3 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-3'>
-            <a href='/' aria-label='Restoration Contractors MN home' class='flex-shrink-0' style='max-width:55%;background:transparent;'>
-                <img src="{{ url_for('static', filename='images/rcmn-logo.png') }}" alt='Restoration Contractors MN — Twin Cities Emergency Network' width='700' height='282' style='display:block;width:clamp(170px,28vw,280px);max-width:100%;height:auto;object-fit:contain;'>
-            </a>
+            {% include 'partials/brand_logo.html' %}
             <nav class='hidden md:flex items-center space-x-8'>
                 <a href='/' class='text-amber-700 font-bold text-sm transition'>Home</a>
                 <a href='/signup' class='text-slate-700 hover:text-amber-700 font-medium text-sm transition'>For Contractors</a>
