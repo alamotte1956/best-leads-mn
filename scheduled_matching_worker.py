@@ -60,6 +60,7 @@ def process_matching_batch():
         processed = 0
         created = 0
         expired = 0
+        failed = 0
 
         for lead in leads:
             try:
@@ -103,6 +104,7 @@ def process_matching_batch():
                     created += 1
 
             except Exception:
+                failed += 1
                 db.session.rollback()
                 app.logger.exception(
                     "Matching failed for lead %s", lead.id
@@ -112,6 +114,7 @@ def process_matching_batch():
             "processed": processed,
             "created": created,
             "expired": expired,
+            "failed": failed,
         }
 
 
@@ -120,4 +123,6 @@ if __name__ == "__main__":
         print("MATCHING DISABLED")
         print("Set ENABLE_LIVE_MATCHING=YES only after approval.")
     else:
-        print(process_matching_batch())
+        result = process_matching_batch()
+        print(result)
+        raise SystemExit(1 if result["failed"] else 0)
