@@ -76,21 +76,61 @@ def load_owner_dashboard_data(db, Lead, Contractor, LeadOffer):
         .scalar()
     ) or 0
 
-    rows = (
-        db.session.query(Lead, LeadOffer, Contractor)
-        .outerjoin(LeadOffer, LeadOffer.lead_id == Lead.id)
-        .outerjoin(
-            Contractor,
-            Contractor.id == LeadOffer.contractor_id,
-        )
-        .order_by(Lead.id.desc(), LeadOffer.offered_at.desc())
+    # Fetch the 200 most recent homeowners first.
+    # Then select the most relevant offer for each homeowner.
+    leads = (
+        db.session.query(Lead)
+        .order_by(Lead.id.desc())
         .limit(200)
         .all()
     )
 
+    lead_ids = [lead.id for lead in leads]
+
+    offers = (
+        db.session.query(LeadOffer, Contractor)
+        .outerjoin(
+            Contractor,
+            Contractor.id == LeadOffer.contractor_id,
+        )
+        .filter(LeadOffer.lead_id.in_(lead_ids))
+        .order_by(LeadOffer.offered_at.desc(), LeadOffer.id.desc())
+        .all()
+    ) if lead_ids else []
+
+    offers_by_lead = {}
+
+    for offer, contractor in offers:
+        offers_by_lead.setdefault(offer.lead_id, []).append(
+            (offer, contractor)
+        )
+
     lead_rows = []
 
-    for lead, offer, contractor in rows:
+    for lead in leads:
+        candidates = offers_by_lead.get(lead.id, [])
+
+        def offer_priority(item):
+            offer, contractor = item
+
+            if offer.status == "accepted":
+                return 3
+
+            if (
+                offer.status == "pending"
+                and offer.expires_at > now
+            ):
+                return 2
+
+            return 1
+
+        if candidates:
+            offer, contractor = max(
+                candidates,
+                key=offer_priority,
+            )
+        else:
+            offer, contractor = None, None
         status = offer.status if offer else None
 
         if (
