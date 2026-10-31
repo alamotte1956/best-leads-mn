@@ -39,6 +39,10 @@
             background: #929aa6;
             cursor: not-allowed;
         }
+        .offer form { display:inline-block; margin:0 10px 10px 0; }
+        .decline-button { background:#fff; color:#172b4d; border:1px solid #aab5c4; }
+        .decline-button:disabled { color:#fff; }
+        .offer-message { padding:12px; background:#e8f0fa; border-radius:6px; }
     </style>
 </head>
 <body>
@@ -46,9 +50,14 @@
 <main>
     <h1>My Lead Offers</h1>
     <p>Pending offers must be accepted within 15 minutes.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <p class="offer-message" role="status">{{ message }}</p>
+        {% endfor %}
+    {% endwith %}
 
     {% for offer in offers %}
-    <section class="offer">
+    <section class="offer" data-offer-status="{{ offer.status }}">
         <h2>Lead #{{ offer.lead_id }}</h2>
         <p><strong>Service:</strong> {{ offer.service_needed }}</p>
         <p><strong>ZIP code:</strong> {{ offer.zip_code }}</p>
@@ -67,8 +76,19 @@
                    name="_csrf"
                    value="{{ csrf_token() }}">
             <button type="submit"
-                    {% if offer.status != 'pending' %}disabled{% endif %}>
+                    {% if offer.status != 'pending' or offer.expires_at <= server_now %}disabled{% endif %}>
                 Accept Lead
+            </button>
+        </form>
+
+        <form method="POST"
+              action="{{ url_for('contractor_decline_offer', offer_id=offer.id) }}">
+            <input type="hidden"
+                   name="_csrf"
+                   value="{{ csrf_token() }}">
+            <button type="submit" class="decline-button"
+                    {% if offer.status != 'pending' or offer.expires_at <= server_now %}disabled{% endif %}>
+                Decline Lead
             </button>
         </form>
     </section>
@@ -83,12 +103,24 @@
 
     function updateTimers() {
         timers.forEach(function (element) {
+            const offerCard = element.closest(".offer");
+            const status = offerCard.dataset.offerStatus;
+            if (status && status !== "pending") {
+                element.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                offerCard.querySelectorAll("button").forEach(function (button) {
+                    button.disabled = true;
+                });
+                return;
+            }
             const deadline = Date.parse(element.dataset.expiresAt);
             const serverNow = Date.parse(element.dataset.serverNow);
 
             if (!Number.isFinite(deadline) ||
                 !Number.isFinite(serverNow)) {
                 element.textContent = "Unavailable";
+                offerCard.querySelectorAll("button").forEach(function (button) {
+                    button.disabled = true;
+                });
                 return;
             }
 
@@ -110,10 +142,9 @@
             if (remaining === 0) {
                 element.classList.add("expired");
 
-                const button = element.closest(".offer")
-                    .querySelector("button");
-
-                if (button) button.disabled = true;
+                offerCard.querySelectorAll("button").forEach(function (button) {
+                    button.disabled = true;
+                });
             }
         });
     }

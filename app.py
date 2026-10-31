@@ -984,6 +984,66 @@ def contractor_accept_offer(offer_id):
 
 
 
+@app.route("/contractor/offers/<int:offer_id>/decline", methods=["POST"])
+def contractor_decline_offer(offer_id):
+    import secrets
+
+    from contractor_session_security import contractor_session_valid
+    from contractor_offer_decline import decline_contractor_offer
+
+    contractor_id = session.get("contractor_id")
+
+    if (
+        not isinstance(contractor_id, int)
+        or isinstance(contractor_id, bool)
+    ):
+        return redirect(url_for("contractor_login"))
+
+    contractor = db.session.get(Contractor, contractor_id)
+
+    if not contractor_session_valid(dict(session), contractor):
+        session.pop("contractor_id", None)
+        session.pop("contractor_login_at", None)
+        return redirect(url_for("contractor_login"))
+
+    supplied = request.form.get("_csrf", "")
+    expected = session.get("_csrf", "")
+
+    if (
+        not supplied
+        or not expected
+        or not secrets.compare_digest(supplied, expected)
+    ):
+        abort(400)
+
+    try:
+        result = decline_contractor_offer(
+            db.session,
+            offer_id,
+            contractor_id,
+        )
+
+        if result is None:
+            db.session.rollback()
+            flash(
+                "Offer unavailable, expired, or already handled.",
+                "error",
+            )
+            return redirect(url_for("contractor_dashboard"))
+
+        db.session.commit()
+
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Contractor offer decline failed")
+        abort(503)
+
+    flash("Lead offer declined successfully.", "success")
+    return redirect(url_for("contractor_dashboard"))
+
+
+
+
 @app.route("/admin/owner-command-center", methods=["GET"])
 def owner_command_center():
     from datetime import datetime, timezone
