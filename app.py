@@ -797,6 +797,11 @@ def terms():
     )
 
 
+# BEGIN RCMN RESTORATION LANDING PAGES
+from restoration_landing_pages import restoration_landing_pages
+app.register_blueprint(restoration_landing_pages)
+# END RCMN RESTORATION LANDING PAGES
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 

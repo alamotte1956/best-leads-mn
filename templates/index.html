@@ -11,6 +11,8 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
     </style>
+    <!-- RCMN service page styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/restoration-landing.css') }}">
 </head>
 <body class='bg-slate-900 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950'>
 
@@ -31,6 +33,15 @@
             </div>
         </div>
     </header>
+
+<!-- BEGIN RCMN SERVICE PAGE LINKS -->
+<nav class="rcmn-service-links" aria-label="Restoration service pages">
+  <a href="/water-damage-restoration">Water damage</a>
+  <a href="/fire-smoke-damage-restoration">Fire &amp; smoke damage</a>
+  <a href="/mold-remediation">Mold remediation</a>
+  <a href="/storm-damage-restoration">Storm damage</a>
+</nav>
+<!-- END RCMN SERVICE PAGE LINKS -->
 
 <!-- RCMN HOMEPAGE SALES HERO -->
 <section id="rcmn-sales-hero"
@@ -399,5 +410,7 @@ document.getElementById('homeowner-request-form').addEventListener('submit', asy
 });
 </script>
 
+<!-- RCMN landing service selection -->
+<script src="{{ url_for('static', filename='js/restoration-service-select.js') }}" defer></script>
 </body>
 </html>

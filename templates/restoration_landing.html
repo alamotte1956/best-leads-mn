@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title }}</title>
+  <meta name="description" content="{{ page.description }}">
+  <link rel="canonical" href="{{ canonical }}">
+  <meta property="og:title" content="{{ page.title }}">
+  <meta property="og:description" content="{{ page.description }}">
+  <meta property="og:url" content="{{ canonical }}">
+  <meta property="og:type" content="website">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/restoration-landing.css') }}">
+</head>
+<body class="rlp rlp-{{ page.theme }}">
+<a class="rlp-skip" href="#main-content">Skip to content</a>
+<header class="rlp-header">
+  <div class="rlp-header-inner">
+    {% include 'partials/brand_logo.html' %}
+    <nav aria-label="Main navigation"><a href="/">Home</a><a href="/signup">For contractors</a><a class="rlp-button rlp-button-small" href="{{ request_url }}">Request a connection <span aria-hidden="true">↗</span></a></nav>
+  </div>
+</header>
+<nav class="rlp-service-nav" aria-label="Restoration services">
+  <div>{% for path, item in pages.items() %}<a href="/{{ path }}"{% if path == slug %} aria-current="page"{% endif %}>{{ item.name }}</a>{% endfor %}</div>
+</nav>
+<main id="main-content">
+  <section class="rlp-hero">
+    <div class="rlp-container rlp-hero-grid">
+      <div class="rlp-hero-copy">
+        <p class="rlp-eyebrow">{{ page.eyebrow }}</p>
+        <h1>{{ page.headline }} <span>{{ page.highlight }}</span></h1>
+        <p class="rlp-intro">{{ page.intro }}</p>
+        <a class="rlp-button" href="{{ request_url }}">{{ page.cta }} <span aria-hidden="true">↗</span></a>
+        <p class="rlp-fineprint">A contractor connection starts with your request.<br>Availability and response times vary.</p>
+      </div>
+      <aside class="rlp-project-note" aria-label="Common project concerns">
+        <div class="rlp-note-top"><span>YOUR HOME. YOUR NEXT STEP.</span><span aria-hidden="true">MN</span></div>
+        <svg class="rlp-house" viewBox="0 0 360 160" fill="none" aria-hidden="true">
+          <path d="M32 113 162 21l130 92M64 94v58h195V91M184 152v-45h39v45M105 105h37v27h-37zM235 55V31h24v41" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>
+          {% if page.theme == 'water' %}<path d="M12 145q18-12 36 0t36 0t36 0t36 0t36 0t36 0t36 0t36 0t36 0" stroke="var(--accent)" stroke-width="5"/>
+          {% elif page.theme == 'fire' %}<path d="M312 118c-30-16-24-38-9-55 0 15 17 18 16 32 9-7 10-13 10-13 20 25 9 41-17 36Z" fill="var(--accent)"/>
+          {% elif page.theme == 'mold' %}<path d="M282 131c-3-32 16-53 47-55-1 33-17 54-47 55Zm0 0 34-42" stroke="var(--accent)" stroke-width="5"/>
+          {% else %}<path d="m312 35-30 44h24l-12 41 46-57h-26l15-28Z" fill="var(--accent)"/>{% endif %}
+        </svg>
+        <h2>{{ page.panel_title }}</h2>
+        <p>{{ page.panel_intro }}</p>
+        <ul>{% for symptom in page.symptoms %}<li><span aria-hidden="true">↗</span>{{ symptom }}</li>{% endfor %}</ul>
+        <div class="rlp-note-bottom">Minneapolis <span aria-hidden="true">/</span> St. Paul <span aria-hidden="true">/</span> Twin Cities</div>
+      </aside>
+    </div>
+  </section>
+  <div class="rlp-availability"><div class="rlp-container"><strong>Minnesota-focused.</strong><span>Contractor availability depends on your ZIP code and service needs.</span></div></div>
+  <section class="rlp-section rlp-container rlp-scope-grid" aria-labelledby="scope-title">
+    <div><p class="rlp-eyebrow">UNDERSTAND YOUR PROJECT</p><h2 id="scope-title">{{ page.scope_heading }}</h2><p class="rlp-body-copy">{{ page.scope_intro }}</p><a class="rlp-text-link" href="{{ request_url }}">Describe your project <span aria-hidden="true">→</span></a></div>
+    <div class="rlp-scope-list">{% for title, description in page.scopes %}<article><span class="rlp-number">0{{ loop.index }}</span><div><h3>{{ title }}</h3><p>{{ description }}</p></div></article>{% endfor %}</div>
+  </section>
+  <section class="rlp-process-section" aria-labelledby="process-title"><div class="rlp-container">
+    <p class="rlp-eyebrow">A CLEAR PLACE TO START</p><h2 id="process-title">From concern to conversation.</h2>
+    <div class="rlp-process-grid"><article><span>01 / TELL US</span><h3>Share the essentials.</h3><p>{{ page.details }}</p></article><article><span>02 / REQUEST A CONNECTION</span><h3>Let us review your request.</h3><p>We use your service needs and ZIP code to look for a participating contractor. A submission does not guarantee a match.</p></article><article><span>03 / MAKE YOUR DECISION</span><h3>Talk through the work.</h3><p>If connected, discuss the scope, timing and price directly. Review qualifications, licensing where required, and insurance before hiring.</p></article></div>
+  </div></section>
+  <section class="rlp-section rlp-container rlp-faq-grid" aria-labelledby="faq-title"><div><p class="rlp-eyebrow">BEFORE YOU SUBMIT</p><h2 id="faq-title">A few helpful answers.</h2><p class="rlp-body-copy">Restoration Contractors MN connects homeowners with independent contractors. We do not perform the restoration work.</p></div><div class="rlp-faqs">{% for question, answer in page.faqs %}<details><summary>{{ question }}</summary><p>{{ answer }}</p></details>{% endfor %}</div></section>
+  <section class="rlp-final"><div class="rlp-container"><div><p class="rlp-eyebrow">LET’S START WITH YOUR PROJECT</p><h2>Your home deserves a clear next step.</h2><p>Tell us what happened, where you are, and what kind of help you need.</p></div><a class="rlp-button" href="{{ request_url }}">{{ page.cta }} <span aria-hidden="true">↗</span></a></div></section>
+</main>
+<footer class="rlp-footer"><div class="rlp-container"><div><a class="rlp-footer-brand" href="/">RESTORATION CONTRACTORS MN</a><p>Contractor connections for Minnesota homeowners.</p><p>This website is not an emergency response service. For an immediate threat to life or safety, contact emergency services.</p></div><nav aria-label="Footer navigation"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/sms-policy">SMS policy</a><a href="/signup">For contractors</a></nav></div></footer>
+</body>
+</html>
