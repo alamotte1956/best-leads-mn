@@ -89,15 +89,9 @@
     <!-- Navigation Bar -->
     <header class='bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50'>
         <div class='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center'>
-            <div class='flex items-center space-x-3'>
-                <div class='w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg shadow-amber-500/20'>
-                    RC
-                </div>
-                <div>
-                    <span class='text-xl sm:text-2xl font-extrabold tracking-tight text-white'>Restoration<span class='text-amber-500'>MN</span></span>
-                    <span class='block text-[10px] tracking-widest uppercase font-bold text-slate-400'>Twin Cities Verified Network</span>
-                </div>
-            </div>
+            <a href='/' aria-label='Restoration Contractors MN home' class='flex-shrink-0 rounded-lg bg-white p-1.5 sm:p-2' style='max-width:55%;'>
+                <img src="{{ url_for('static', filename='images/rcmn-logo.png') }}" alt='Restoration Contractors MN — Twin Cities Emergency Network' width='700' height='282' style='display:block;width:clamp(140px,25vw,280px);max-width:100%;height:auto;max-height:60px;object-fit:contain;'>
+            </a>
             <nav class='hidden md:flex items-center space-x-8'>
                 <a href='/' class='text-amber-400 font-bold text-sm transition'>Home</a>
                 <a href='/signup' class='text-slate-300 hover:text-amber-400 font-medium text-sm transition'>For Contractors</a>
