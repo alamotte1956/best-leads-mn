@@ -66,7 +66,7 @@
                     <tbody class='divide-y divide-gray-200 text-sm'>
                         {% for lead in leads %}
                         <tr>
-                            <td class='p-4 font-mono text-gray-500'>#{{ lead.id }}</td>
+                            <td class='p-4 font-mono text-gray-500'><a href="{{ url_for('operations.lead_review',lead_id=lead.id) }}">#{{ lead.id }} — Review</a></td>
                             <td class='p-4 font-bold text-gray-900'>{{ lead.homeowner_name }}</td>
                             <td class='p-4 text-gray-600'>{{ lead.phone }}<br><span class='text-xs text-gray-400'>{{ lead.email }}</span></td>
                             <td class='p-4 font-mono font-medium text-amber-600'>{{ lead.zip_code }}</td>

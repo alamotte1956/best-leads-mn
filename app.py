@@ -1141,6 +1141,8 @@ from national import national
 app.register_blueprint(national)
 from contractor_onboarding import onboarding
 app.register_blueprint(onboarding)
+from operations import operations
+app.register_blueprint(operations)
 
 from werkzeug.exceptions import HTTPException
 

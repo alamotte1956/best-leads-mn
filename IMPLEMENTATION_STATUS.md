@@ -74,3 +74,12 @@ Browser checks: completed a synthetic homeowner request against an isolated in-m
 ## Browser compatibility pass
 
 Shared safeguards now cover every HTML page family, including policies and errors. 22 automated Python tests and three browser-feature fallback checks pass. Chromium preview completed 99 geometry checks across 33 routes at phone, tablet and desktop widths with no page-level horizontal overflow; mobile request submission succeeded. Safari, Firefox and physical-device execution remain outstanding. See BROWSER_COMPATIBILITY.md for the precise matrix and release checks. Production remains untouched.
+
+
+## Contractor coverage and administrative lead controls
+
+Approved, authenticated contractors can manage their own comma-separated ZIP coverage at /contractor/settings. Invalid input retains the form without changing records. Account identifiers supplied in the request are ignored; the authenticated account determines ownership. Service/credential changes remain subject to review.
+
+Administrators can review an individual request and its offer history, see a side-effect-free service/ZIP matching preview, and move open requests to Closed or Cancelled. The status change cancels pending offers in the same transaction, retains accepted/history records, and stops matching. PostgreSQL status updates take the same lead advisory lock as matching/acceptance; this path still needs PostgreSQL staging execution. Terminal requests cannot be reopened through this control.
+
+27 Python automated tests and three JavaScript fallback checks pass. Browser execution verified coverage saving and request closure against synthetic in-memory data. The two new pages passed six phone/tablet/desktop overflow checks. No new database schema or production changes were required. GitHub branch creation was rechecked and rejected with 403 Resource not accessible by integration; an account connection with repository write access remains necessary to publish the branch and PR.
