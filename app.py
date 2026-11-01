@@ -44,6 +44,9 @@ ContractorPasswordSetupToken = define_contractor_password_setup_token(db)
 from admin_login_attempt import define_admin_login_attempt
 AdminLoginAttempt = define_admin_login_attempt(db)
 
+from credential_verification import define_verification
+CredentialReview = define_verification(db)
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -68,6 +71,12 @@ class Contractor(db.Model):
     sms_consent_method = db.Column(db.String(50))
     password_hash = db.Column(db.String(512), nullable=True)
     sms_opted_out_at = db.Column(db.DateTime(timezone=True))
+
+
+    @property
+    def credential_review_current(self):
+        from credential_verification import current_credentials
+        return current_credentials(self)
 
 
 class ContractorService(db.Model):
@@ -325,13 +334,20 @@ def admin_contractor_status(contractor_id):
         abort(404)
 
     try:
+        contractor = Contractor.query.filter_by(id=contractor_id).with_for_update().one()
         if action == 'approve':
+            from credential_verification import latest_review, review_valid
+            if not review_valid(contractor, latest_review(contractor)):
+                abort(409, 'Record a current approved license and insurance review before activation.')
             contractor.active = True
             contractor.verified = True
         else:
             contractor.active = False
 
         db.session.commit()
+    except HTTPException:
+        db.session.rollback()
+        raise
     except Exception:
         db.session.rollback()
         app.logger.exception('Contractor status update failed')
@@ -378,10 +394,10 @@ def admin_dashboard():
         Lead.id.desc()
     ).limit(200).all()
 
-    verified_contractor_count = Contractor.query.filter_by(
-        active=True,
-        verified=True
-    ).count()
+    verified_contractor_count = sum(
+        1 for contractor in Contractor.query.filter_by(active=True, verified=True).all()
+        if contractor.credential_review_current
+    )
 
     contractors = Contractor.query.order_by(
         Contractor.id.desc()
@@ -602,6 +618,7 @@ def contractor_sms_eligible(contractor):
     if not (
         contractor.active is True
         and contractor.verified is True
+        and contractor.credential_review_current
         and contractor.is_test is False
         and contractor.sms_consent is True
         and contractor.sms_consent_at is not None
@@ -1143,6 +1160,8 @@ from contractor_onboarding import onboarding
 app.register_blueprint(onboarding)
 from operations import operations
 app.register_blueprint(operations)
+from credential_verification import verification
+app.register_blueprint(verification)
 
 from werkzeug.exceptions import HTTPException
 

@@ -24,6 +24,9 @@ def contractor_matches(contractor, lead, additional_services=None):
     if contractor.is_test is not False:
         return False
 
+    if not getattr(contractor, 'credential_review_current', True):
+        return False
+
     requested_service = normalize_service(lead.service_needed)
 
     services = {normalize_service(contractor.service_type)}

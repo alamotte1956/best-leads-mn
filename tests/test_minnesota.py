@@ -109,6 +109,7 @@ class MinnesotaFlows(unittest.TestCase):
         self.client.post('/signup',data=data)
         self.assertEqual(Contractor.query.filter_by(email='new@example.com').count(),1)
         self.admin()
+        self.record_review(applicant.id)
         self.assertEqual(self.client.post(f'/admin/contractors/{applicant.id}/status',data={'_csrf':'csrf-test','action':'approve'}).status_code,302)
         db.session.refresh(applicant)
         self.assertTrue(applicant.active); self.assertTrue(applicant.verified)
@@ -204,3 +205,62 @@ class MinnesotaFlows(unittest.TestCase):
         self.assertEqual(self.client.post(f'/admin/leads/{lead.id}/status',data={'status':'Closed'}).status_code,400)
         self.assertEqual(self.client.post(f'/admin/leads/{lead.id}/status',data={'_csrf':'csrf-test','status':'New'}).status_code,400)
         db.session.refresh(lead);self.assertEqual(lead.status,'New')
+
+    def record_review(self, contractor_id=None, decision='approved'):
+        contractor_id = contractor_id or self.contractor.id
+        expiry = (datetime.now(timezone.utc)+timedelta(days=30)).date().isoformat()
+        return self.client.post(f'/admin/contractors/{contractor_id}/verification',data={
+            '_csrf':'csrf-test','decision':decision,'notes':'Manually checked test evidence',
+            'license_reference':'test-license-record','insurance_reference':'test-insurance-record',
+            'license_checked':'yes','insurance_checked':'yes','license_expires':expiry,'insurance_expires':expiry})
+    def test_activation_requires_current_credential_review(self):
+        self.admin()
+        self.contractor.active=False;self.contractor.verified=False;db.session.commit()
+        response=self.client.post(f'/admin/contractors/{self.contractor.id}/status',data={'_csrf':'csrf-test','action':'approve'})
+        self.assertEqual(response.status_code,409)
+        self.assertEqual(self.record_review().status_code,302)
+        response=self.client.post(f'/admin/contractors/{self.contractor.id}/status',data={'_csrf':'csrf-test','action':'approve'})
+        self.assertEqual(response.status_code,302)
+        db.session.refresh(self.contractor);self.assertTrue(self.contractor.active)
+    def test_expired_review_blocks_session_and_matching(self):
+        from app import CredentialReview
+        from contractor_matching import contractor_matches
+        from contractor_login_security import contractor_login_allowed
+        self.admin();self.record_review();self.contractor_session()
+        review=CredentialReview.query.one()
+        review.insurance_expires=(datetime.now(timezone.utc)-timedelta(days=1)).date();db.session.commit()
+        lead=Lead(homeowner_name='Homeowner',phone='6125550199',zip_code='55401',service_needed='Mold Remediation')
+        self.assertFalse(contractor_matches(self.contractor,lead))
+        self.assertFalse(contractor_login_allowed(self.contractor,'initial-test-password'))
+        self.assertEqual(self.client.get('/contractor/dashboard').status_code,302)
+    def test_rejected_review_retains_history_and_deactivates(self):
+        from app import CredentialReview
+        self.admin();self.record_review()
+        self.assertEqual(self.record_review(decision='rejected').status_code,302)
+        db.session.refresh(self.contractor)
+        self.assertFalse(self.contractor.active);self.assertFalse(self.contractor.verified)
+        self.assertEqual(CredentialReview.query.count(),2)
+    def test_review_requires_admin_csrf_and_evidence(self):
+        from app import CredentialReview
+        path=f'/admin/contractors/{self.contractor.id}/verification'
+        self.assertEqual(self.client.get(path).status_code,403)
+        self.admin()
+        self.assertEqual(self.client.post(path,data={'decision':'approved'}).status_code,400)
+        self.assertEqual(self.client.post(path,data={'_csrf':'csrf-test','decision':'approved','notes':'Missing evidence'}).status_code,400)
+        self.assertEqual(CredentialReview.query.count(),0)
+    def test_license_change_invalidates_previous_review(self):
+        self.admin();self.record_review()
+        self.assertTrue(self.contractor.credential_review_current)
+        self.contractor.license_number='CHANGED';db.session.commit()
+        self.assertFalse(self.contractor.credential_review_current)
+
+    def test_expired_evidence_cannot_be_recorded_as_approved(self):
+        from app import CredentialReview
+        self.admin()
+        yesterday=(datetime.now(timezone.utc)-timedelta(days=1)).date().isoformat()
+        response=self.client.post(f'/admin/contractors/{self.contractor.id}/verification',data={
+            '_csrf':'csrf-test','decision':'approved','notes':'Expired test evidence',
+            'license_reference':'test','insurance_reference':'test','license_checked':'yes',
+            'insurance_checked':'yes','license_expires':yesterday,'insurance_expires':yesterday})
+        self.assertEqual(response.status_code,400)
+        self.assertEqual(CredentialReview.query.count(),0)

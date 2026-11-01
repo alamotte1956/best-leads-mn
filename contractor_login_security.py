@@ -32,6 +32,9 @@ def contractor_login_allowed(contractor, password):
     if getattr(contractor, "is_test", False):
         return False
 
+    if not getattr(contractor, 'credential_review_current', True):
+        return False
+
     password_hash = getattr(contractor, "password_hash", None)
 
     if not password_hash:

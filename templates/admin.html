@@ -103,7 +103,7 @@
                         {% for contractor in contractors %}
                         <tr>
                             <td class='p-4 font-mono text-gray-500'>#{{ contractor.id }}</td>
-                            <td class='p-4 font-bold text-gray-900'>{{ contractor.company_name }}{% if contractor.active and contractor.verified and not contractor.is_test %}
+                            <td class='p-4 font-bold text-gray-900'>{{ contractor.company_name }}<p><a href="{{ url_for('verification.review_credentials',contractor_id=contractor.id) }}">Review license &amp; insurance</a></p>{% if contractor.active and contractor.verified and not contractor.is_test and contractor.credential_review_current %}
 <form method="post" action="{{ url_for('onboarding.issue_setup', contractor_id=contractor.id) }}">
 <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button type="submit">Create password setup link</button></form>{% endif %}</td>
                             <td class='p-4 text-gray-800'>{{ contractor.contact_name }}</td>
@@ -112,7 +112,7 @@
                             <td class='p-4 text-gray-800'>{{ contractor.service_type }}</td>
                             <td class='p-4 font-bold text-amber-600'>{{ contractor.rating }}</td>
                             <td class='p-4'>
-                                {% if contractor.active and contractor.verified %}
+                                {% if contractor.active and contractor.verified and not contractor.credential_review_current %}<span class="text-orange-700 font-bold">Credential review required</span>{% elif contractor.active and contractor.verified %}
                                 <span class='text-green-700 font-bold'>Approved / Verified</span>
                                 {% elif contractor.active %}
                                 <span class='text-orange-700 font-bold'>Active / Unverified</span>

@@ -22,7 +22,7 @@ def issue_setup(contractor_id):
     contractor = db.session.get(Contractor, contractor_id)
     if not contractor:
         abort(404)
-    if not contractor.active or not contractor.verified or contractor.is_test:
+    if not contractor.active or not contractor.verified or contractor.is_test or not contractor.credential_review_current:
         abort(409, 'Approve and verify the contractor before issuing access.')
     now = datetime.now(timezone.utc)
     token = secrets.token_urlsafe(32)
@@ -64,7 +64,7 @@ def setup_password(token):
                 if row is None:
                     abort(400, 'This link is invalid or expired.')
                 contractor = Contractor.query.filter_by(id=row.contractor_id).with_for_update().one()
-                if not contractor.active or not contractor.verified or contractor.is_test:
+                if not contractor.active or not contractor.verified or contractor.is_test or not contractor.credential_review_current:
                     abort(400, 'Account is unavailable.')
                 result = db.session.execute(update(Token).where(Token.id == row.id,
                     Token.used_at.is_(None), Token.expires_at > now).values(used_at=now).execution_options(synchronize_session=False))

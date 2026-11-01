@@ -83,3 +83,14 @@ Approved, authenticated contractors can manage their own comma-separated ZIP cov
 Administrators can review an individual request and its offer history, see a side-effect-free service/ZIP matching preview, and move open requests to Closed or Cancelled. The status change cancels pending offers in the same transaction, retains accepted/history records, and stops matching. PostgreSQL status updates take the same lead advisory lock as matching/acceptance; this path still needs PostgreSQL staging execution. Terminal requests cannot be reopened through this control.
 
 27 Python automated tests and three JavaScript fallback checks pass. Browser execution verified coverage saving and request closure against synthetic in-memory data. The two new pages passed six phone/tablet/desktop overflow checks. No new database schema or production changes were required. GitHub branch creation was rechecked and rejected with 403 Resource not accessible by integration; an account connection with repository write access remains necessary to publish the branch and PR.
+
+
+## Manual license and insurance review workflow
+
+Added append-only contractor credential-review records, administrator review forms with evidence references and expiration dates, and a current-review requirement for new account activation. Rejection deactivates the contractor and cancels pending offers while preserving review/offer history. Once a review exists, expired, rejected or changed-license credentials block login, existing sessions, matching, SMS eligibility and password-setup access. Administration flags current review problems and excludes them from the verified-contractor count. Historical approved records with no review preserve their existing behavior until reviewed; audit and review them before production rollout.
+
+This is documented manual review, not an external registry/insurance-provider check, and not verified legal business identity for rewards. Administrators must independently inspect evidence. This does not authorize activation of the five expansion states or real rewards.
+
+33 Python tests and three browser fallback checks pass. New regressions cover required reviews before activation, registration-to-review-to-activation, expired evidence, expired review session/matching protection, license changes, rejected history and administrator/CSRF boundaries. Chromium preview checked the review page at 320/768/1440 requested widths without horizontal overflow.
+
+New PostgreSQL schema is supplied in migrations/001_credential_reviews.sql. Apply it first in isolated staging, review existing tables/backups and PostgreSQL concurrency behavior, and obtain production authorization before any hosted migration. Local SQLite creation only was exercised; no production migration was performed. The application must not be deployed without the new table. For an application rollback, retain the review table/history rather than dropping records.
