@@ -55,6 +55,8 @@ ResendEvent, EmailSuppression = define_email_tracking(db)
 app.register_blueprint(email_delivery)
 from contractor_account_notifications import define_account_events
 ContractorAccountEvent = define_account_events(db)
+from consumer_requests import define_consumer_updates
+ConsumerRequestUpdate = define_consumer_updates(db)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -558,7 +560,8 @@ def signup():
 
 @app.route("/request-received")
 def homeowner_request_received():
-    return render_template("request_received.html")
+    from consumer_requests import PRIVATE_HEADERS
+    return render_template("request_received.html"), 200, PRIVATE_HEADERS
 
 
 @app.route("/api/leads", methods=["POST"])
@@ -611,9 +614,12 @@ def submit_lead():
         db.session.flush()
         from communications import queue_email
         queue_email(f'lead:{lead.id}:received', lead.email, 'Restoration request received',
-                    f'Your restoration request #{lead.id} was saved. Matching is pending. This is not a confirmed appointment.')
+                    f'Your restoration request #{lead.id} was saved. This is not a confirmed appointment. '
+                    'Check your current status at https://RestorationContractorsMN.com/request-status '
+                    'in the original browser used to submit the request. Private status access lasts seven days.')
         db.session.commit()
-        session["last_lead_reference"] = lead.id
+        from consumer_requests import remember_request
+        remember_request(lead.id)
         # No automatic assignment yet. Do not report "matched" when no
         # exclusive assignment has actually been created.
         if not is_json_submission:
@@ -623,6 +629,7 @@ def submit_lead():
             "status": "success",
             "message": "Request received. Contractor matching is pending.",
             "lead_id": lead.id,
+            "status_url": url_for('consumer_requests.status'),
             "assignment_status": "pending"
         }), 201
     except Exception:
@@ -1041,6 +1048,8 @@ def contractor_accept_offer(offer_id):
             )
             return redirect(url_for("contractor_dashboard"))
 
+        from consumer_requests import queue_request_update
+        queue_request_update(db.session.get(Lead,result['lead_id']), 'accepted', offer_id=offer_id)
         db.session.commit()
 
     except Exception:
@@ -1198,6 +1207,8 @@ app.register_blueprint(communications)
 app.register_blueprint(billing)
 from provider_admin import provider_admin
 app.register_blueprint(provider_admin)
+from consumer_requests import consumer_requests
+app.register_blueprint(consumer_requests)
 
 @app.cli.command('refresh-market-benchmarks')
 def refresh_market_benchmarks_command():

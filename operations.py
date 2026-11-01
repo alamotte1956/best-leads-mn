@@ -64,7 +64,11 @@ def lead_review(lead_id):
         candidates = [contractor for contractor in Contractor.query.filter_by(active=True, verified=True, is_test=False).all()
                       if contractor_matches(contractor, lead, service_map.get(contractor.id, []))]
     offers = db.session.query(LeadOffer, Contractor).join(Contractor, Contractor.id == LeadOffer.contractor_id).filter(LeadOffer.lead_id == lead_id).order_by(LeadOffer.id.desc()).all()
-    return render_template('lead_review.html', lead=lead, candidates=candidates, offers=offers)
+    from app import ConsumerRequestUpdate, Delivery
+    consumer_updates = db.session.query(ConsumerRequestUpdate, Delivery).join(
+        Delivery, Delivery.id == ConsumerRequestUpdate.delivery_id).filter(
+        ConsumerRequestUpdate.lead_id == lead_id).order_by(ConsumerRequestUpdate.id.desc()).limit(20).all()
+    return render_template('lead_review.html', lead=lead, candidates=candidates, offers=offers, consumer_updates=consumer_updates)
 
 
 @operations.post('/admin/leads/<int:lead_id>/status')
@@ -88,6 +92,8 @@ def lead_status(lead_id):
         if changed.rowcount != 1:
             abort(409, 'The request was changed by another administrator. Refresh and try again.')
         db.session.execute(update(LeadOffer).where(LeadOffer.lead_id == lead_id, LeadOffer.status == 'pending').values(status='cancelled'))
+        from consumer_requests import queue_request_update
+        queue_request_update(lead, target.lower())
         db.session.commit()
     except Exception:
         db.session.rollback()

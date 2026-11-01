@@ -31,3 +31,7 @@ Responsive viewport checks are not physical-device tests. Do not label this a co
 ## References
 
 The grid minimum-size fix follows [MDN's min-width reference](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/min-width). Form enhancement falls back to ordinary submission when [native reportValidity](https://developer.mozilla.org/en-US/docs/Web/API/HTMLTextAreaElement/reportValidity) is unavailable. These references inform implementation; they do not replace browser execution.
+
+## Consumer tracking update
+
+The new status page, receipt link, homepage navigation and administrator consumer-email history passed 27 Chromium state/viewport checks at 320, 768 and 1440 pixels, with no horizontal overflow. Contact actions appeared only for an eligible accepted match. Tracking is server rendered and requires no JavaScript. Other browser engines and physical devices remain unverified.

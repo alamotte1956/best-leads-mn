@@ -63,8 +63,9 @@ def twilio_sms(delivery):
 
 
 def deliver_pending(limit=20):
-    from app import db, Delivery, Contractor, LeadOffer, ContractorAccountEvent, contractor_sms_eligible
+    from app import db, Delivery, Contractor, LeadOffer, ContractorAccountEvent, ConsumerRequestUpdate, contractor_sms_eligible
     from contractor_account_notifications import account_notice_current
+    from consumer_requests import request_update_current
     rows = Delivery.query.filter_by(status='pending').order_by(Delivery.id).limit(min(max(limit,1),100)).all()
     result = {'sent':0,'suppressed':0,'uncertain':0,'disabled':0,'cancelled':0}
     for row in rows:
@@ -79,6 +80,11 @@ def deliver_pending(limit=20):
             continue
         account_event = ContractorAccountEvent.query.filter_by(delivery_id=row.id).first()
         if account_event and not account_notice_current(row, account_event):
+            db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='pending').values(status='cancelled'))
+            db.session.commit();result['cancelled'] += 1
+            continue
+        consumer_event = ConsumerRequestUpdate.query.filter_by(delivery_id=row.id).first()
+        if consumer_event and not request_update_current(row, consumer_event):
             db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='pending').values(status='cancelled'))
             db.session.commit();result['cancelled'] += 1
             continue
@@ -106,6 +112,10 @@ def deliver_pending(limit=20):
         if claimed != 1:
             continue
         try:
+            if consumer_event and not request_update_current(row, consumer_event):
+                db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='cancelled'))
+                db.session.commit();result['cancelled'] += 1
+                continue
             if account_event and not account_notice_current(row, account_event):
                 db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='cancelled'))
                 db.session.commit();result['cancelled'] += 1
