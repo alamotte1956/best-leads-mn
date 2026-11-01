@@ -63,6 +63,8 @@ from service_requests import define_service_requests
 ServiceRequest = define_service_requests(db)
 from notification_preferences import define_notification_preferences
 NotificationPreference, NotificationPreferenceEvent = define_notification_preferences(db)
+from lead_progress import define_lead_progress
+ContractorLeadProgress, LeadProgressEvent = define_lead_progress(db)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -1228,6 +1230,8 @@ from service_requests import service_requests
 app.register_blueprint(service_requests)
 from notification_preferences import notification_preferences
 app.register_blueprint(notification_preferences)
+from lead_progress import lead_progress
+app.register_blueprint(lead_progress)
 
 @app.cli.command('refresh-market-benchmarks')
 def refresh_market_benchmarks_command():

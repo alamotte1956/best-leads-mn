@@ -27,7 +27,7 @@
         <p>Discuss the work, credentials, estimate and timing directly with this business before hiring.</p>
         <div class="form-actions">
           {% if phone_digits %}<a class="button primary" href="tel:{{ phone_digits }}">Call {{ contractor.phone }}</a>{% endif %}
-          <a class="button secondary" href="mailto:{{ contractor.email }}">Email contractor</a>
+          {% if contractor_mailto %}<a class="button secondary" href="{{ contractor_mailto }}">Email contractor</a>{% endif %}
         </div>
       </section>
       {% endif %}

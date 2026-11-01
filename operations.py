@@ -72,13 +72,18 @@ def lead_review(lead_id):
         candidates = [contractor for contractor in Contractor.query.filter_by(active=True, verified=True, is_test=False).all()
                       if contractor_matches(contractor, lead, service_map.get(contractor.id, []))]
     offers = db.session.query(LeadOffer, Contractor).join(Contractor, Contractor.id == LeadOffer.contractor_id).filter(LeadOffer.lead_id == lead_id).order_by(LeadOffer.id.desc()).all()
-    from app import ConsumerRequestUpdate, Delivery, LeadStatusEvent
+    from app import ConsumerRequestUpdate, Delivery, LeadStatusEvent, ContractorLeadProgress
     consumer_updates = db.session.query(ConsumerRequestUpdate, Delivery).join(
         Delivery, Delivery.id == ConsumerRequestUpdate.delivery_id).filter(
         ConsumerRequestUpdate.lead_id == lead_id).order_by(ConsumerRequestUpdate.id.desc()).limit(20).all()
     status_events = LeadStatusEvent.query.filter_by(lead_id=lead_id).order_by(LeadStatusEvent.id.desc()).limit(20).all()
+    followups=db.session.query(LeadOffer,Contractor,ContractorLeadProgress).join(
+        Contractor,Contractor.id==LeadOffer.contractor_id).join(
+        ContractorLeadProgress,ContractorLeadProgress.offer_id==LeadOffer.id).filter(
+        LeadOffer.lead_id==lead_id,ContractorLeadProgress.contractor_id==LeadOffer.contractor_id).all()
+    from lead_progress import STAGES
     return render_template('lead_review.html', lead=lead, candidates=candidates, offers=offers,
-        consumer_updates=consumer_updates, status_events=status_events)
+        consumer_updates=consumer_updates,status_events=status_events,followups=followups,followup_stages=STAGES)
 
 
 @operations.post('/admin/leads/<int:lead_id>/status')

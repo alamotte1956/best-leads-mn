@@ -4,7 +4,15 @@ The code integrations are present. The Albert LaMotte Stripe sandbox is connecte
 
 ## Database and operating controls
 
-Review and apply additive migrations 001 through 010 to an isolated staging PostgreSQL database first. Migration 004 adds daily benchmark evidence and quote fields; 005 adds Resend event audit and email suppression tables; 006 adds contractor account decisions; 007 adds consumer request email updates; 008 adds request status-change history; 009 adds reviewed additional-service requests; 010 adds contractor lead-alert choices and change history. Historical records are retained. Obtain explicit authorization before production changes. The five expansion states and real rewards remain disabled.
+Review and apply additive migrations 001 through 011 to an isolated staging PostgreSQL database first. Migration 004 adds daily benchmark evidence and quote fields; 005 adds Resend event audit and email suppression tables; 006 adds contractor account decisions; 007 adds consumer request email updates; 008 adds request status-change history; 009 adds reviewed additional-service requests; 010 adds contractor lead-alert choices; 011 adds contractor-reported follow-up and update history. Historical records are retained. Obtain explicit authorization before production changes. The five expansion states and real rewards remain disabled.
+
+## Contractor-reported follow-up
+
+`/contractor/leads` lists only the authenticated contractor's accepted offers, with stage/date filters and 20-row pagination. Each accepted offer has a private follow-up page for reported stage, an optional next date and a note (2,000-character maximum). Dates use America/Chicago for dashboard organization; no automated reminders, calendar sync or email/SMS are scheduled by these entries. Accepted historical offers can be logged after matching stops, but pending/declined offers and another contractor's offers cannot be accessed through this workflow.
+
+Current progress and append-only update history share a transaction. Revision checks reject stale edits while preserving the draft and showing the latest saved state; an intentional subsequent save creates another history record. Identical retries do not duplicate reports. Administrators have a read-only view linked from request review. Notes are shared only with that contractor and administrators and are omitted from consumer tracking and messages. These reports do not prove an appointment or completion, close matching, alter an offer/payment, issue credits or fulfill a reward. Obtain independent evidence for any later fulfillment workflow.
+
+Contact actions encode email addresses as recipients rather than mailto header/query parameters and reject control characters. This is applied to both consumer and contractor contact buttons. References: [RFC 6068](https://www.rfc-editor.org/rfc/rfc6068), [Python URL quoting](https://docs.python.org/3/library/urllib.parse.html#urllib.parse.quote). This does not verify ownership or deliverability of an email address.
 
 `/admin/integrations` shows enabled switches, missing configuration names and recent delivery/payment statuses without showing key values. Account presence is not proof of provider verification or successful live operation.
 

@@ -47,3 +47,7 @@ Browser execution verified contractor submission, administrator scope review/app
 ## Lead-alert controls
 
 Contractor preferences, paused/SMS-only states, dashboard/settings navigation and administrator read-only inspection/navigation passed 21 screenshot-backed Chromium checks at 320/768/1440 with no horizontal overflow. Browser execution saved independent choices and confirmed existing offers remained available. Forms work without JavaScript; checkbox accents use navy with native fallback. Additional browser engines and physical devices remain unverified.
+
+## Accepted-lead follow-up
+
+Accepted/overdue/upcoming lists, contractor detail before/after save, dashboard links, administrator request summary and read-only history passed 24 screenshot-backed Chromium checks at 320/768/1440 with no horizontal overflow. Browser execution saved a synthetic estimate/date/note, retained the earlier report and showed follow-up links only on accepted offers. Forms and pagination are server rendered without JavaScript dependence. Other engines and physical devices remain unverified.

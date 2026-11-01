@@ -75,11 +75,13 @@ def request_status(lead):
 
 @consumer_requests.get('/request-status')
 def status():
+    from contact_links import mailto_address
     lead = owned_request()
     state, contractor, offer = request_status(lead) if lead else (None,None,None)
     phone_digits = re.sub(r'[^0-9]','',contractor.phone or '') if contractor else ''
     return render_template('request_status.html',lead=lead,state=state,
-        status_copy=STATUS_COPY.get(state),contractor=contractor,phone_digits=phone_digits), 200, PRIVATE_HEADERS
+        status_copy=STATUS_COPY.get(state),contractor=contractor,phone_digits=phone_digits,
+        contractor_mailto=mailto_address(contractor.email) if contractor else None),200,PRIVATE_HEADERS
 
 
 @consumer_requests.after_request
