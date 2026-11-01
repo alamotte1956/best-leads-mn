@@ -1116,5 +1116,8 @@ def restoration_service_page(slug):
         all_pages=LANDING_PAGES,
     )
 
+from national import national
+app.register_blueprint(national)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

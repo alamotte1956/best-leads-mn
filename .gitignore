@@ -17,3 +17,4 @@ templates/*.backup*
 legal_backups/
 
 landing_backups/
+.venv/
