@@ -10,6 +10,8 @@ Review and apply additive migrations 001 through 004 to an isolated staging Post
 
 ## Resend
 
+Resend is the selected email provider for both consumers and contractors. Consumer request receipts, contractor application receipts, contractor lead-offer notifications and contractor payment confirmations use the same Resend outbox. Consumer email remains optional; SMS delivery is separate. This integration sends transactional notifications; two-way inbox/reply handling and marketing campaigns are not implemented.
+
 Verify the sender domain in Resend and configure its required DNS records. Set RESEND_API_KEY and RESEND_FROM_EMAIL to an authorized sender, then enable EMAIL_SENDING_ENABLED only for the intended environment. Homeowner request receipts (where an email was supplied), application receipts, lead-offer emails and payment confirmations are queued transactionally.
 
 The worker calls https://api.resend.com/emails with a stable Idempotency-Key. `sent` means provider acceptance, not inbox delivery. Resend bounce/complaint/delivery webhook ingestion and recipient suppression automation remain follow-up work; do not claim end-to-end email delivery reporting. Resend idempotency keys expire after 24 hours, so uncertain messages are never automatically retried.

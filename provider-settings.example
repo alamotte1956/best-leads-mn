@@ -1,5 +1,6 @@
 # Copy values into protected runtime settings. Never commit real keys.
 EMAIL_SENDING_ENABLED=false
+# Resend handles both consumer and contractor transactional email.
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=
 SMS_SENDING_ENABLED=false

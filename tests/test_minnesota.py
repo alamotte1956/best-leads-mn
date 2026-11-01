@@ -371,6 +371,33 @@ class MinnesotaFlows(unittest.TestCase):
             self.admin();response=self.client.get('/admin/integrations')
             self.assertEqual(response.status_code,200);self.assertNotIn('sk_live_hidden',response.text)
 
+    def test_consumer_and_contractor_receipts_both_use_resend(self):
+        import io, json
+        from app import Delivery
+        from communications import deliver_pending
+        self.assertEqual(self.client.post('/api/leads',json={
+            'name':'Consumer','phone':'6125550100','email':'consumer@example.com',
+            'zip_code':'55401','service_needed':'Mold Remediation'}).status_code,201)
+        with self.client.session_transaction() as state: state['_csrf']='csrf-test'
+        self.assertEqual(self.client.post('/signup',data={
+            '_csrf':'csrf-test','company_name':'Applicant','contact_name':'Owner',
+            'email':'applicant@example.com','phone':'6125550123','zip_codes':'55401',
+            'license_number':'TEST-APPLICATION','service_type':'Mold Remediation'}).status_code,302)
+        self.assertEqual({row.recipient for row in Delivery.query.all()},
+                         {'consumer@example.com','applicant@example.com'})
+        self.assertTrue(all(row.channel=='email' for row in Delivery.query.all()))
+        responses=[io.BytesIO(b'{"id":"consumer-receipt"}'),io.BytesIO(b'{"id":"contractor-receipt"}')]
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'true','SMS_SENDING_ENABLED':'false'}),patch('communications.urlopen',side_effect=responses) as send:
+            self.assertEqual(deliver_pending()['sent'],2)
+            self.assertEqual(send.call_count,2)
+            recipients=set()
+            for call in send.call_args_list:
+                req=call.args[0]
+                self.assertEqual(req.full_url,'https://api.resend.com/emails')
+                recipients.update(json.loads(req.data)['to'])
+            self.assertEqual(recipients,{'consumer@example.com','applicant@example.com'})
+        self.assertTrue(all(row.status=='sent' for row in Delivery.query.all()))
+
     def test_resend_adapter_uses_transactional_payload_and_key(self):
         import io,json
         from app import Delivery
