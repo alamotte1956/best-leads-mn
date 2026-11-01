@@ -16,11 +16,11 @@ This branch is a preparatory increment, not the complete platform and not approv
 
 ## Reconciliation
 
-GitHub main inspected at 068f011549ed501d3d49c6258ee9467532d68cb0. No rewards files exist there. Accessible Codex folders were searched; no matching uncommitted wheel files were located. Some local paths were inaccessible. The location of the user's existing work has been requested. Do not replace that work without reconciling it. Only the approved Minnesota logo exists in this checkout; no national logo has been fabricated.
+GitHub main inspected at 068f011549ed501d3d49c6258ee9467532d68cb0. The demo wheel is embedded in templates/contractor_offers.html; the initial filename search missed it. It now retains the design with spinning disabled and no browser prize selection. Accessible Codex folders were searched; no matching uncommitted wheel files were located. Some local paths were inaccessible. The location of the user's existing work has been requested. Do not replace that work without reconciling it. Only the approved Minnesota logo exists in this checkout; no national logo has been fabricated.
 
 ## Remaining implementation
 
-- Reconcile the original wheel and connect its UI to the new transaction service.
+- Connect the preserved dashboard wheel to the transaction service after identity, legal, and entry-verification work is complete.
 - Final official rules, legal review, prize inventory, eligibility, odds, promotion timezone, and approved no-purchase entry procedure. UTC in the prototype must be confirmed before release.
 - Trusted business verification and shared business-to-account identity mapping. A unique digest alone cannot establish business identity or prevent aliases.
 - Verified payment webhook and approved free-entry issuer. `issue_credit` is internal only and has no public HTTP route. No client may authorize a credit.
@@ -49,3 +49,14 @@ Tests force an in-memory legacy application database and a temporary SQLite rewa
 7. Keep five new states disabled until separately approved. Production activation requires a reviewed change; there is no public or admin switch that silently enables them.
 
 No Railway deployment or production database connection was performed. GitHub content writes were rejected by the integration (403); the local GitHub sign-in is invalid. A PR cannot be opened with branch content until write access is restored.
+
+
+## Minnesota repair pass
+
+18 automated tests now pass. Added administrator-issued, one-hour, single-use password links with hashed tokens, CSRF protection, expiry/reissue checks and no automatic messages. Approved contractors can establish credentials and sign in. Password changes revoke existing contractor sessions. Existing contractors will need to sign in again after this update.
+
+Fixed SQLite login and offer-action failures while preserving PostgreSQL production locking. SQLite integer primary-key variants fix local autoincrement; PostgreSQL types remain BigInteger. Fixed naive/aware offer date rendering. Accepted offers show homeowner contact details only to the assigned contractor; pending offers hide them. Added an acceptance guard against multiple accepted offers on one lead and against cancelled leads. Owner reporting now checks the current administrator password fingerprint. Hosted startup no longer creates tables automatically.
+
+Tests include registration/approval/duplicate email, password setup/reuse/expiry/reissue, login/lockout/session revocation, accepted-contact privacy, accept/decline, duplicate acceptance, homeowner submission validation, template compilation and administrator pages. PostgreSQL execution, external SMS delivery, payment processing and production configuration remain unverified. Live matching remains behind its existing activation controls; this update does not enable it. The source contains no functioning payment checkout, so payment operation cannot be claimed complete. Rewards remain unavailable pending the original legal and verification requirements.
+
+Run locally with SECRET_KEY, ADMIN_PASSWORD_HASH and CONTRACTOR_LOGIN_LOCK_SECRET (at least 32 characters) configured. In a fresh isolated environment, install requirements.txt then run Flask using app:app. Local SQLite tables are created automatically; hosted databases require an explicitly reviewed schema step. Do not run reset_db.py or seed scripts against production. Create a contractor application, review its evidence manually, approve it in /admin, then use Create password setup link and share it privately with the verified contractor.

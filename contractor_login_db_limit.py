@@ -33,6 +33,10 @@ def normalize_now(now=None):
 def check_login_allowed(session, key, now=None):
     now = normalize_now(now)
 
+    if session.get_bind().dialect.name == "sqlite":
+        from contractor_login_sqlite import allowed
+        return allowed(session, key, now)
+
     row = session.execute(
         text("""
             SELECT locked_until
@@ -52,6 +56,10 @@ def check_login_allowed(session, key, now=None):
 
 def record_login_failure(session, key, now=None):
     now = normalize_now(now)
+
+    if session.get_bind().dialect.name == "sqlite":
+        from contractor_login_sqlite import failure
+        return failure(session, key, now)
 
     session.execute(
         text("""
@@ -118,6 +126,9 @@ def record_login_failure(session, key, now=None):
 
 
 def record_login_success(session, key):
+    if session.get_bind().dialect.name == "sqlite":
+        from contractor_login_sqlite import success
+        return success(session, key)
     session.execute(
         text("""
             DELETE FROM contractor_login_attempts

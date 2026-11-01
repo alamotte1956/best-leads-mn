@@ -11,6 +11,8 @@ ACCEPT_OFFER_SQL = text("""
        AND expires_at > clock_timestamp()
        AND offered_at <= clock_timestamp()
        AND accepted_at IS NULL
+       AND EXISTS (SELECT 1 FROM leads WHERE leads.id = lead_offers.lead_id AND leads.status = 'New')
+       AND NOT EXISTS (SELECT 1 FROM lead_offers other WHERE other.lead_id = lead_offers.lead_id AND other.status = 'accepted')
     RETURNING id, lead_id, contractor_id, accepted_at
 """)
 
@@ -33,6 +35,10 @@ def accept_contractor_offer(session, offer_id, contractor_id):
 
     if offer_id <= 0 or contractor_id <= 0:
         raise ValueError("IDs must be positive.")
+
+    if session.get_bind().dialect.name == "sqlite":
+        from contractor_offer_sqlite import transition
+        return transition(session, offer_id, contractor_id, "accepted")
 
     # Serialize acceptance with expiration and sequential matching.
     # This lookup does not change the offer.

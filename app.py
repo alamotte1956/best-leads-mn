@@ -199,8 +199,10 @@ class SmsNotification(db.Model):
         nullable=True,
     )
 
-with app.app_context():
-    db.create_all()
+# Schema writes must be explicit in hosted environments.
+if not (os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_PROJECT_ID")) and db_url.startswith("sqlite:"):
+    with app.app_context():
+        db.create_all()
 
 
 
@@ -861,6 +863,8 @@ def contractor_login():
     session.pop("contractor_login_at", None)
 
     session.update(create_contractor_session_data(contractor_id))
+    import hashlib
+    session["contractor_password_fingerprint"] = hashlib.sha256(contractor.password_hash.encode()).hexdigest()
 
     return redirect(url_for("contractor_dashboard"))
 
@@ -918,7 +922,8 @@ def contractor_dashboard():
             "service_needed": lead.service_needed,
             "zip_code": lead.zip_code,
             "status": offer.status,
-            "expires_at": offer.expires_at,
+            "expires_at": offer.expires_at.replace(tzinfo=timezone.utc) if offer.expires_at.tzinfo is None else offer.expires_at,
+            "contact": {"name": lead.homeowner_name, "phone": lead.phone, "email": lead.email, "description": lead.description} if offer.status == "accepted" else None,
         })
 
     return render_template(
@@ -1048,7 +1053,10 @@ def contractor_decline_offer(offer_id):
 
 
 
+from national import administrator
+
 @app.route("/admin/owner-command-center", methods=["GET"])
+@administrator
 def owner_command_center():
     from datetime import datetime, timezone
     from owner_command_center_data import load_owner_dashboard_data
@@ -1118,6 +1126,8 @@ def restoration_service_page(slug):
 
 from national import national
 app.register_blueprint(national)
+from contractor_onboarding import onboarding
+app.register_blueprint(onboarding)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

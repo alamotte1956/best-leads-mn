@@ -146,15 +146,15 @@
 
 <div id="iq-result" class="iq-result"
      role="status" aria-live="polite">
-  Ready to spin?
+  Rewards are unavailable pending official rules and legal approval.
 </div>
 
 <button type="button" id="iq-spin"
-        class="iq-spin-button">
-  SPIN TO WIN
+        class="iq-spin-button" disabled>
+  REWARDS UNAVAILABLE
 </button>
 
-<p id="iq-spin-info">5-10 revolutions per spin</p>
+<p id="iq-spin-info">Spinning and redemption are disabled.</p>
 
 <p class="iq-disclaimer">
   Demonstration only. No actual discounts, credits,
@@ -227,57 +227,6 @@
     segments.appendChild(text);
   });
 
-  let rotation = 0;
-  let spinning = false;
-
-  button.addEventListener("click", function () {
-    if (spinning) return;
-
-    spinning = true;
-    button.disabled = true;
-
-    const turns = 5 + Math.floor(Math.random() * 6);
-    const winner = Math.floor(Math.random() * prizes.length);
-
-    const target = (360 - (winner * 45 + 22.5)) % 360;
-    const current = ((rotation % 360) + 360) % 360;
-    const adjustment = (target - current + 360) % 360;
-
-    const duration = 5500 + turns * 450;
-
-    rotation += turns * 360 + adjustment;
-
-    result.textContent = "Spinning...";
-    info.textContent = turns + " revolutions - slowing down";
-
-    rotor.style.transition =
-      "transform " + duration +
-      "ms cubic-bezier(0.12,0.72,0.16,1)";
-
-    function finish(event) {
-      if (event.propertyName !== "transform") return;
-
-      rotor.removeEventListener("transitionend", finish);
-
-      result.textContent =
-        "You landed on " + prizes[winner][0] + "!";
-
-      info.textContent =
-        turns + " full revolutions completed";
-
-      spinning = false;
-      button.disabled = false;
-    }
-
-    rotor.addEventListener("transitionend", finish);
-
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        rotor.style.transform =
-          "rotate(" + rotation + "deg)";
-      });
-    });
-  });
 })();
 </script>
 </section>
@@ -325,6 +274,7 @@
                 Decline Lead
             </button>
         </form>
+        {% if offer.contact %}<div><h3>Homeowner contact</h3><p>{{ offer.contact.name }} · {{ offer.contact.phone }}</p>{% if offer.contact.email %}<p>{{ offer.contact.email }}</p>{% endif %}<p>{{ offer.contact.description or '' }}</p></div>{% endif %}
     </section>
     {% else %}
     <p>You have no lead offers at this time.</p>

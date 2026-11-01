@@ -23,6 +23,11 @@ def lock_contractor_login_account(session, account_key_hash):
     ):
         raise ValueError("Valid SHA-256 account key required")
 
+    if session.get_bind().dialect.name == "sqlite":
+        # Reserve the SQLite writer before reading the attempt row.
+        session.execute(text("BEGIN IMMEDIATE"))
+        return
+
     session.execute(
         text("""
             SELECT pg_advisory_xact_lock(

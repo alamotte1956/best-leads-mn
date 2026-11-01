@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 
 
@@ -50,6 +52,11 @@ def contractor_session_valid(session_data, contractor, now=None):
         return False
 
     if not getattr(contractor, "password_hash", None):
+        return False
+
+    fingerprint = session_data.get("contractor_password_fingerprint")
+    expected = hashlib.sha256(contractor.password_hash.encode()).hexdigest()
+    if not isinstance(fingerprint, str) or not hmac.compare_digest(fingerprint, expected):
         return False
 
     try:

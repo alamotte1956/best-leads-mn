@@ -99,7 +99,9 @@
                         {% for contractor in contractors %}
                         <tr>
                             <td class='p-4 font-mono text-gray-500'>#{{ contractor.id }}</td>
-                            <td class='p-4 font-bold text-gray-900'>{{ contractor.company_name }}</td>
+                            <td class='p-4 font-bold text-gray-900'>{{ contractor.company_name }}{% if contractor.active and contractor.verified and not contractor.is_test %}
+<form method="post" action="{{ url_for('onboarding.issue_setup', contractor_id=contractor.id) }}">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button type="submit">Create password setup link</button></form>{% endif %}</td>
                             <td class='p-4 text-gray-800'>{{ contractor.contact_name }}</td>
                             <td class='p-4 text-gray-600'>{{ contractor.phone }}<br><span class='text-xs text-gray-400'>{{ contractor.email }}</span></td>
                             <td class='p-4 font-mono text-emerald-600 font-semibold'>{{ contractor.license_number }}</td>

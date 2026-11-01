@@ -12,7 +12,7 @@ def define_lead_offer(db):
     class LeadOffer(db.Model):
         __tablename__ = "lead_offers"
 
-        id = db.Column(db.BigInteger, primary_key=True)
+        id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True)
 
         lead_id = db.Column(
             db.Integer,

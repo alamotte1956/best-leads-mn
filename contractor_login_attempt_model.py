@@ -9,7 +9,7 @@ def define_contractor_login_attempt(db):
     class ContractorLoginAttempt(db.Model):
         __tablename__ = "contractor_login_attempts"
 
-        id = db.Column(db.BigInteger, primary_key=True)
+        id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True)
 
         account_key_hash = db.Column(
             db.String(64),
