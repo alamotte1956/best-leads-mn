@@ -148,9 +148,18 @@ class PostgresConcurrencyTests(unittest.TestCase):
         db.session.remove()
         with db.engine.connect().execution_options(isolation_level='AUTOCOMMIT') as connection:
             self.assertEqual(connection.execute(text('SELECT current_schema()')).scalar_one(),schema)
-            for _ in range(2):
+            for iteration in range(2):
                 for migration in sorted((Path(__file__).resolve().parents[1]/'migrations').glob('*.sql')):
-                    connection.exec_driver_sql(migration.read_text(encoding='utf-8-sig'))
+                    # Migration bodies contain literal LIKE '%' and format('%I')
+                    # expressions. No DBAPI parameter mapping may be supplied:
+                    # psycopg2 otherwise treats these SQL literals as placeholders.
+                    with self.subTest(migration=migration.name,iteration=iteration):
+                        with connection.connection.cursor() as cursor:
+                            try:
+                                cursor.execute(migration.read_text(encoding='utf-8-sig'))
+                            except Exception:
+                                cursor.execute('ROLLBACK')
+                                raise
 
 
 if __name__=='__main__':unittest.main(verbosity=2)

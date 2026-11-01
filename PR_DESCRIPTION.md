@@ -17,11 +17,11 @@ The Minnesota marketplace needed secure approval, working customer/contractor wo
 
 ## Validation
 
-Local Python/JavaScript results and browser evidence are summarized in RELEASE_CHECKS.md. The full Python suite passed 203 tests. After the final previous-state audit addition, all ten location-review tests passed again. Browser configuration enumerates 56 scenarios but its other-engine runs and the six PostgreSQL checks remain unexecuted. Existing Chromium evidence includes national 24-page/width checks and earlier Minnesota checks. No live emails, texts or charges were sent.
+Local Python/JavaScript results and browser evidence are summarized in RELEASE_CHECKS.md. The full Python suite passed 203 tests. After the final previous-state audit addition, all ten location-review tests passed again. GitHub Actions passed all 56 browser scenarios across seven projects and the application checks. Five PostgreSQL concurrency checks passed; repeat migration execution found a test-runner bug caused by literal percent signs being interpreted as driver parameters. The runner now executes migration bodies directly without parameters; its corrected run is pending. Existing Chromium evidence includes national 24-page/width checks and earlier Minnesota checks. No live emails, texts or charges were sent.
 
 ## Remaining requirements
 
-Working GitHub write authentication; authorized daily market observations; verified Resend sender/runtime keys/webhook and end-to-end delivery; real Stripe sandbox validation and hosted-session expiry/re-quote reconciliation; PostgreSQL migration/concurrency execution; all browser-engine/physical-device checks; rewards legal rules/qualification/prizes/equal free-entry/fulfillment; state verification policies and launch approvals. Business identity and credentials are documented manual reviews, not external registry integrations.
+Ongoing private publishing-session authentication; authorized daily market observations; verified Resend sender/runtime keys/webhook and end-to-end delivery; real Stripe sandbox validation and hosted-session expiry/re-quote reconciliation; the corrected PostgreSQL migration check; physical-device checks; rewards legal rules/qualification/prizes/equal free-entry/fulfillment; state verification policies and launch approvals. Business identity and credentials are documented manual reviews, not external registry integrations.
 
 The owner requested removal of contractor/consumer data only. No local saved database was found. Railway's connected access reveals names, not database credentials or query access; no hosted customer records have been deleted. Keep program files and operational schema intact.
 
@@ -32,3 +32,5 @@ The owner requested removal of contractor/consumer data only. No local saved dat
 3. Configure owner-selected Resend sender info@restorationcontractorsmn.com after domain verification. Run the outbox worker; keep SMS and live Stripe off.
 4. Obtain the required pricing, legal, state-launch and production approvals. Reconcile outstanding hosted checkouts and customer-data removal against an approved backup.
 5. Merge/deploy only after specific authorization, with restore-tested backups, domain checks, monitoring and rollback. The existing Railway services track main, so merging can trigger production deployment. Do not merge this draft as a way to run tests.
+
+First CI results: https://github.com/alamotte1956/best-leads-mn/actions/runs/41333049842. Direct Python dependencies are pinned to the versions installed in the successful application/browser jobs.

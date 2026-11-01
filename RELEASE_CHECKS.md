@@ -5,10 +5,10 @@
 - Complete Python suite: 203 tests passed. After the final previous-state audit addition, ten location-review tests passed again. All runs used isolated SQLite databases and mocked external sending/charging.
 - Three JavaScript feature-fallback checks passed.
 - Twenty-four national route/width combinations passed screenshot-backed Chromium geometry/local-image checks at 320, 768 and 1440 pixels. See national-layout-checks.json in the output package. Earlier Minnesota and workflow results are detailed in BROWSER_COMPATIBILITY.md.
-- Playwright configuration and pinned dependencies installed successfully; `--list` enumerated 56 browser scenarios across seven projects. Enumeration is not execution.
-- PostgreSQL safety guard tests reject hosted/non-test URLs and connection-override query strings before making any connection. Actual PostgreSQL checks reported a skip because POSTGRES_TEST_URL was absent.
+- GitHub Actions executed and passed all 56 browser scenarios across seven projects: Chromium, branded Chrome/Edge, Firefox, WebKit and Android/iPhone emulation. The same run passed the full application and JavaScript jobs. This does not establish physical-device compatibility.
+- PostgreSQL safety guards reject hosted/non-test URLs and connection-override query strings before any connection. The GitHub PostgreSQL 18 job passed five concurrency checks; the repeat-migration check failed in the test runner because raw SQL percent literals were interpreted as driver parameters. The runner correction is committed next and must pass another run.
 
-## Prepared but not executed
+## CI coverage and remaining verification
 
 `.github/workflows/platform-checks.yml` runs the normal suite, JavaScript fallbacks, six PostgreSQL 18 scenarios and a browser matrix after a draft PR is published. Browser projects cover Chromium, branded Chrome and Edge, Firefox, WebKit and Android/iPhone emulation. They cover public/private routes at three widths, disabled markets/rewards and native form submission without JavaScript. Emulation does not replace physical-device testing or a formal accessibility audit.
 
@@ -18,4 +18,6 @@
 
 ## Production gates
 
-No live provider end-to-end tests, PostgreSQL execution, other browser engines, physical devices, production migrations or deploys have been verified. All five new states and real rewards remain disabled. Missing daily authorized market data blocks quotes. Real payment launch also requires hosted-checkout expiry/re-quote reconciliation and approved purchase/refund terms.
+No live provider end-to-end tests, corrected PostgreSQL migration run, physical devices, production migrations or deploys have been verified. The first actual browser matrix and five PostgreSQL concurrency checks passed. All five new states and real rewards remain disabled. Missing daily authorized market data blocks quotes. Real payment launch also requires hosted-checkout expiry/re-quote reconciliation and approved purchase/refund terms.
+
+First CI run: https://github.com/alamotte1956/best-leads-mn/actions/runs/41333049842. Pinned Python package versions match that run's successful installations.

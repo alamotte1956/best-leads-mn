@@ -58,3 +58,10 @@ Accepted/overdue/upcoming lists, contractor detail before/after save, dashboard 
 National home, Minnesota city landing, national operations, private Texas/Florida city previews, state-application queue/review and contractor state request passed 24 Chromium page/width combinations at 320/768/1440 without horizontal overflow or broken local images. The generated restoration scene is labeled illustrative. Additional rewards/location page evidence is recorded in the output report when executed.
 
 Prepared CI config enumerates 56 scenarios across Chromium, branded Chrome/Edge, Firefox, WebKit and Android/iPhone emulation. Tests cover public/private page families at three widths, closed markets/rewards and a no-JavaScript submission/status flow. This configuration has been parsed/listed locally, but those browser-engine runs have not executed. No claim of full Safari, Firefox, Edge or physical-device compatibility is made before their runs pass.
+
+
+## Executed browser matrix — November 1, 2026
+
+The first GitHub Actions browser job passed all 56 scenarios in 2.6 minutes across Chromium, branded Google Chrome/Microsoft Edge, Firefox, WebKit, Android Chrome emulation and iPhone Safari emulation. It exercised public/private routes at 320/768/1440 widths, closed-state/rewards gates and native form submission/status tracking without JavaScript. This supersedes earlier notes that these engines had not run. Actual Safari on Apple hardware, physical devices and a formal accessibility audit remain unverified.
+
+Evidence: https://github.com/alamotte1956/best-leads-mn/actions/runs/41333049842 (browser job 124927004813). The complete application job also passed. PostgreSQL migration-test correction is separate from browser compatibility.

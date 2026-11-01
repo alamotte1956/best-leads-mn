@@ -14,23 +14,23 @@ This feature branch contains substantial implemented and locally tested work. Th
 - Postal-reference plausibility safeguards and documented location review. Unknown/mismatched associations are held before matching; facilities do not establish actual property jurisdiction. Original website tracking links survive state corrections.
 - Disabled LeadIQ Rewards preparation and business identity review. Canonical legal-entity/account uniqueness, renewal without identity switching, private evidence, and combined ten-spin monthly transaction primitives with replay/double-spend/concurrency tests. Real entries, credits, spins and redemption remain disconnected and unavailable.
 - Local SQLite customer-data reset with verified backup, dependency-safe row deletion and rollback. Legacy schema-dropping reset is disabled. No program files are removed by the record-reset utility.
-- Pull-request checks prepared for Python/JavaScript, six isolated PostgreSQL concurrency/migration scenarios, and 56 browser scenarios across Chromium, Chrome, Edge, Firefox, WebKit and Android/iPhone emulation. The latter database/browser suites have not executed in their required environments.
+- Pull-request checks prepared for Python/JavaScript, six isolated PostgreSQL concurrency/migration scenarios, and 56 browser scenarios across Chromium, Chrome, Edge, Firefox, WebKit and Android/iPhone emulation. The browser matrix has now passed in GitHub Actions. Five PostgreSQL checks passed; the migration-runner correction awaits another CI run.
 
 ## Verified locally
 
-The complete Python suite passed 203 tests. After adding explicit previous-state audit storage, all ten location-review tests passed again. Three JavaScript fallback checks passed. National pages passed 24 screenshot-backed phone/tablet/desktop checks with no horizontal overflow or broken local images. Earlier Minnesota compatibility checks and their limits remain in BROWSER_COMPATIBILITY.md. Browser configuration successfully enumerated all 56 prepared scenarios. PostgreSQL execution skipped because no isolated test connection was available; a skip is not a pass.
+The complete Python suite passed 203 tests. After adding explicit previous-state audit storage, all ten location-review tests passed again. Three JavaScript fallback checks passed. National pages passed 24 screenshot-backed phone/tablet/desktop checks with no horizontal overflow or broken local images. Earlier Minnesota compatibility checks and their limits remain in BROWSER_COMPATIBILITY.md. GitHub Actions independently passed 203 application tests, three JavaScript checks and all 56 browser scenarios. Five PostgreSQL concurrency checks passed. The migration repeatability check exposed a raw-SQL parameter-handling issue in the test runner; that runner has been corrected and awaits re-execution. Direct dependencies are pinned to the versions installed by the successful CI application/browser jobs.
 
 ## External connections and owner choices
 
 - Owner-selected sender: **info@restorationcontractorsmn.com**. Its Resend domain verification and actual delivery are not yet confirmed.
 - Railway read-only inventory confirms the repository's live web/cron/Postgres services. A Resend key is present by name; sender, enable switch and webhook secret are not listed. Connected access redacts database credentials and provides no data-query operation. The browser dashboard requires separate sign-in. No variables, services, domains or data were changed.
 - The Albert LaMotte Stripe test account was read successfully. Runtime keys/webhook configuration and actual test Checkout/refund/replay execution remain necessary. No charge or live Stripe configuration was created.
-- GitHub main still matches the local base. Repository reads work, but connector branch creation returns 403 and local CLI authentication returns 401. The feature branch and PR therefore remain unpublished until secure authentication succeeds.
+- The owner published feature/restoration-usa and draft PR #1 using the private masked token helper. Main remains unchanged. Connected repository reads and CI inspection work; connected write calls still reject access, and the build account does not retain the owner's temporary token. Subsequent updates can use the private project-session publisher.
 - No customer database file exists in this local checkout/work directory. Hosted customer-record removal remains pending exact data access, backup/reconciliation and a reviewable target-specific operation. Program files remain intact.
 
 ## Required to finish and release
 
-1. Publish the saved feature branch and draft PR using repository-scoped GitHub credentials; run and fix the prepared PostgreSQL/browser checks.
+1. Publish the migration-runner fix to existing draft PR #1 and rerun PostgreSQL checks. The browser matrix and application checks have passed; physical-device validation remains outstanding.
 2. In an explicitly authorized isolated environment, apply migrations 001–018, test preservation/rollback against a restored copy and execute concurrent matching, acceptance, provider and rewards tests. Do not apply migrations to production automatically.
 3. Verify the Resend sender domain, configure protected runtime values and signed webhooks, test delivery/bounce/complaint/idempotency for both audiences, and schedule the outbox worker. SMS remains disabled.
 4. Connect an authorized source of comparable daily Angi/Thumbtack contractor lead fees. Missing or stale evidence blocks quotes. No static prices, invented marketplace values or gated-page scraping is used.
@@ -41,3 +41,5 @@ The complete Python suite passed 203 tests. After adding explicit previous-state
 9. Obtain specific production authorization for backups/migrations, record removal, release/merge and Railway deployment. Confirm both brand domains, monitoring and rollback before launch.
 
 Supporting details: PROVIDER_SETUP.md, NATIONAL_EXPANSION.md, REWARDS_READINESS.md, LOCATION_REFERENCE.md, DATA_RESET.md, MARKET_PRICING.md, MINNESOTA_LOOKUP_PLAN.md, BROWSER_COMPATIBILITY.md and RELEASE_CHECKS.md.
+
+GitHub evidence: [draft PR #1](https://github.com/alamotte1956/best-leads-mn/pull/1), [first check run](https://github.com/alamotte1956/best-leads-mn/actions/runs/41333049842).
