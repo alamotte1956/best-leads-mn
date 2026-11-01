@@ -4,7 +4,7 @@ The code integrations are present. The Albert LaMotte Stripe sandbox is connecte
 
 ## Database and operating controls
 
-Review and apply additive migrations 001 through 004 to an isolated staging PostgreSQL database first. Migration 004 adds daily benchmark evidence and quote fields; historical price rows and payment records are retained. Obtain explicit authorization before production changes. The five expansion states and real rewards remain disabled.
+Review and apply additive migrations 001 through 005 to an isolated staging PostgreSQL database first. Migration 004 adds daily benchmark evidence and quote fields; 005 adds Resend event audit and email suppression tables. Historical records are retained. Obtain explicit authorization before production changes. The five expansion states and real rewards remain disabled.
 
 `/admin/integrations` shows enabled switches, missing configuration names and recent delivery/payment statuses without showing key values. Account presence is not proof of provider verification or successful live operation.
 
@@ -14,7 +14,15 @@ Resend is the selected email provider for both consumers and contractors. Consum
 
 Verify the sender domain in Resend and configure its required DNS records. Set RESEND_API_KEY and RESEND_FROM_EMAIL to an authorized sender, then enable EMAIL_SENDING_ENABLED only for the intended environment. Homeowner request receipts (where an email was supplied), application receipts, lead-offer emails and payment confirmations are queued transactionally.
 
-The worker calls https://api.resend.com/emails with a stable Idempotency-Key. `sent` means provider acceptance, not inbox delivery. Resend bounce/complaint/delivery webhook ingestion and recipient suppression automation remain follow-up work; do not claim end-to-end email delivery reporting. Resend idempotency keys expire after 24 hours, so uncertain messages are never automatically retried.
+The worker calls https://api.resend.com/emails with a stable Idempotency-Key and a server-owned delivery_id tag. `sent` means provider acceptance. Resend idempotency keys expire after 24 hours, so uncertain messages are never automatically retried.
+
+Register the public HTTPS endpoint `/webhooks/resend` in the intended Resend account for email.sent, email.delivery_delayed, email.delivered, email.failed, email.bounced, email.complained and email.suppressed. Store that endpoint's signing secret in RESEND_WEBHOOK_SECRET. The endpoint verifies raw-body Svix signatures with constant-time HMAC comparison, a five-minute attempt-timestamp tolerance and durable message-ID deduplication. Keep the server clock synchronized. It rejects mismatched recipients/tags, limits payload size and ignores unrelated account mail.
+
+Delivery updates, audit events and recipient blocks commit together. Server-owned tags correlate callbacks arriving before the send response; later send completion or timeout cannot overwrite terminal callback status. Status priority prevents late sent/delayed/delivered events from clearing failures, hard bounces, suppression or complaints. `delivered` means acceptance by the receiving mail server, not reading or inbox placement. Email opens/clicks are not tracked.
+
+Permanent bounces, spam complaints and provider suppression create durable local blocks for future consumer AND contractor messages, checked before sending. Explicit temporary bounces and delays do not permanently block an address; generic failures require reconciliation and are not retried automatically. Blocks use the same trimmed, lowercase address normalization as intake, without inventing alias rules. `/admin/integrations` shows the blocked count and latest 50 addresses/reasons. No automatic unblock or blind resend action exists. Retain first-block provenance and all linked event history.
+
+Emails already in flight cannot be recalled. Keep Resend's own account suppression enabled for send/callback races, import or reconcile pre-existing provider suppressions before release, and inspect provider records before any manual correction. Changing a contact address must not remove the old address block. Legacy messages without correlation tags require manual reconciliation if the callback arrives before the provider ID was saved. Two-way inbound email, administrative suppression correction and real provider delivery testing remain outstanding.
 
 ## Twilio SMS
 
@@ -42,6 +50,6 @@ Expired/closed checkout reconciliation, disputes and refund initiation require f
 
 ## Verification and release limits
 
-Run the automated suite with isolated databases and the browser fallback checks. Tests mock sending/checkout creation but use real Stripe HMAC and Twilio signature verification locally. Before production, run real Resend staging delivery, Twilio approved-recipient tests, Stripe sandbox checkout/refund/replay tests and PostgreSQL concurrency tests. Confirm prices and customer terms. Do not describe the integration as connected or production-ready until those checks and provider configuration succeed.
+Run the automated suite with isolated databases and the browser fallback checks. Tests mock sending/checkout creation but verify real Stripe, Svix and Twilio signatures locally, including an official Svix signature vector and concurrent SQLite email callbacks. Before production, run real Resend staging delivery/bounce/complaint tests, Twilio approved-recipient tests, Stripe sandbox checkout/refund/replay tests and PostgreSQL concurrency tests. Confirm prices and customer terms. Do not describe the integration as connected or production-ready until those checks and provider configuration succeed.
 
-Official references: [Resend send API](https://resend.com/docs/api-reference/emails/send-email), [Twilio messages](https://www.twilio.com/docs/messaging/api/message-resource), [Stripe fulfillment](https://docs.stripe.com/checkout/fulfillment).
+Official references: [Resend send API](https://resend.com/docs/api-reference/emails/send-email), [Resend event types](https://resend.com/docs/webhooks/event-types), [Svix signature verification](https://docs.svix.com/receiving/verifying-payloads/how-manual), [Twilio messages](https://www.twilio.com/docs/messaging/api/message-resource), [Stripe fulfillment](https://docs.stripe.com/checkout/fulfillment).

@@ -3,6 +3,7 @@ EMAIL_SENDING_ENABLED=false
 # Resend handles both consumer and contractor transactional email.
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=
+RESEND_WEBHOOK_SECRET=
 SMS_SENDING_ENABLED=false
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=

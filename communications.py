@@ -34,7 +34,8 @@ def resend_email(delivery):
     if not key or not sender:
         raise RuntimeError('Resend is not configured')
     payload = json.dumps({'from':sender,'to':[delivery.recipient],
-                          'subject':delivery.subject,'text':delivery.body}).encode()
+                          'subject':delivery.subject,'text':delivery.body,
+                          'tags':[{'name':'delivery_id','value':str(delivery.id)}]}).encode()
     req = Request('https://api.resend.com/emails',data=payload,method='POST',headers={
         'Authorization':'Bearer '+key,'Content-Type':'application/json',
         'Idempotency-Key':delivery.event_key})
@@ -81,13 +82,18 @@ def deliver_pending(limit=20):
             deadline = offer.expires_at if offer else None
             if deadline and deadline.tzinfo is None:
                 deadline = deadline.replace(tzinfo=timezone.utc)
-            if (not offer or offer.status != 'pending' or deadline <= datetime.now(timezone.utc)
+            if (not offer or offer.status != 'pending' or not deadline or deadline <= datetime.now(timezone.utc)
                     or not contractor or not contractor.active or not contractor.verified
                     or not contractor.credential_review_current
                     or (row.channel == 'sms' and not contractor_sms_eligible(contractor))):
                 db.session.execute(update(Delivery).where(Delivery.id==row.id, Delivery.status=='pending').values(status='suppressed'));db.session.commit();result['suppressed'] += 1
                 continue
             row.recipient = contractor.email if row.channel == 'email' else contractor.phone
+        from email_delivery import email_suppressed
+        if row.channel == 'email' and email_suppressed(row.recipient):
+            db.session.execute(update(Delivery).where(Delivery.id==row.id, Delivery.status=='pending').values(status='suppressed'))
+            db.session.commit();result['suppressed'] += 1
+            continue
         claimed = db.session.execute(update(Delivery).where(Delivery.id==row.id,
             Delivery.status=='pending').values(status='sending')).rowcount
         db.session.commit()
@@ -101,6 +107,10 @@ def deliver_pending(limit=20):
                     db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='suppressed'))
                     db.session.commit();result['suppressed'] += 1
                     continue
+            if row.channel == 'email' and email_suppressed(row.recipient):
+                db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='suppressed'))
+                db.session.commit();result['suppressed'] += 1
+                continue
             provider_id = resend_email(row) if row.channel == 'email' else twilio_sms(row)
             db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(provider_id=provider_id,status='sent'))
             db.session.commit();result['sent'] += 1

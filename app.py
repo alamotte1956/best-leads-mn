@@ -50,6 +50,9 @@ from market_pricing import define_benchmark
 MarketBenchmark = define_benchmark(db)
 from integration_models import define_integrations
 Delivery, Payment, ProviderEvent, LeadPrice = define_integrations(db)
+from email_delivery import define_email_tracking, email_delivery
+ResendEvent, EmailSuppression = define_email_tracking(db)
+app.register_blueprint(email_delivery)
 
 logging.basicConfig(level=logging.INFO)
 
