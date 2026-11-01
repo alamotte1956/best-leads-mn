@@ -276,6 +276,33 @@ class MinnesotaFlows(unittest.TestCase):
         payment=Payment(offer_id=offer.id,contractor_id=self.contractor.id,amount_cents=2500,currency='usd',price_id=f'market:{evidence.id}',market_benchmark_id=evidence.id,quote_expires_at=datetime.now(timezone.utc)+timedelta(hours=1),session_id='cs_test_1',status='open')
         db.session.add(payment);db.session.commit()
         return payment
+    def test_unapproved_contractors_cannot_quote_or_purchase_leads(self):
+        payment=self.add_invoice()
+        self.contractor_session()
+        config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
+        with patch.dict(os.environ,config),patch('billing.create_checkout') as create,patch('billing.retrieve_checkout') as retrieve:
+            for active,verified in ((False,False),(True,False),(False,True)):
+                with self.subTest(active=active,verified=verified):
+                    self.contractor.active=active;self.contractor.verified=verified;db.session.commit()
+                    # Even an earlier session, accepted offer and saved quote grant no access.
+                    for path in ('/contractor/billing',f'/contractor/offers/{payment.offer_id}/quote',f'/contractor/offers/{payment.offer_id}/checkout'):
+                        response=self.client.get(path) if path.endswith('billing') else self.client.post(path,data={'_csrf':'csrf-test'})
+                        self.assertEqual(response.status_code,302)
+                        self.assertTrue(response.location.endswith('/contractor/login'))
+            create.assert_not_called();retrieve.assert_not_called()
+        db.session.refresh(payment);self.assertEqual(payment.status,'open')
+
+    def test_admin_deactivation_blocks_purchase_with_existing_session(self):
+        payment=self.add_invoice()
+        self.contractor_session();self.admin()
+        self.assertEqual(self.client.post(f'/admin/contractors/{self.contractor.id}/status',data={'_csrf':'csrf-test','action':'deactivate'}).status_code,302)
+        with patch('billing.create_checkout') as create,patch('billing.retrieve_checkout') as retrieve:
+            for action in ('quote','checkout'):
+                response=self.client.post(f'/contractor/offers/{payment.offer_id}/{action}',data={'_csrf':'csrf-test'})
+                self.assertEqual(response.status_code,302)
+                self.assertTrue(response.location.endswith('/contractor/login'))
+            create.assert_not_called();retrieve.assert_not_called()
+
     def stripe_post(self,payment,event_id='evt_test',amount=2500,kind='checkout.session.completed',payment_status='paid'):
         import json,time,hmac
         obj={'id':payment.session_id,'mode':'payment','payment_status':payment_status,'amount_total':amount,'currency':'usd','payment_intent':'pi_test','metadata':{'payment_id':str(payment.id),'contractor_id':str(payment.contractor_id)}}
