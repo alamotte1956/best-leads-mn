@@ -16,7 +16,7 @@ This branch is a preparatory increment, not the complete platform and not approv
 
 ## Reconciliation
 
-GitHub main inspected at 068f011549ed501d3d49c6258ee9467532d68cb0. The demo wheel is embedded in templates/contractor_offers.html; the initial filename search missed it. It now retains the design with spinning disabled and no browser prize selection. Accessible Codex folders were searched; no matching uncommitted wheel files were located. Some local paths were inaccessible. The location of the user's existing work has been requested. Do not replace that work without reconciling it. Only the approved Minnesota logo exists in this checkout; no national logo has been fabricated.
+GitHub main inspected at 068f011549ed501d3d49c6258ee9467532d68cb0. The demo wheel is embedded in templates/contractor_offers.html; the initial filename search missed it. It now retains the design with spinning disabled and no browser prize selection. Accessible Codex folders were searched; no matching uncommitted wheel files were located. Some local paths were inaccessible. The location of the user's existing work has been requested. Do not replace that work without reconciling it. Both approved Minnesota and USA logos supplied by the owner are now included, with trademark artwork preserved.
 
 ## Remaining implementation
 
@@ -28,7 +28,7 @@ GitHub main inspected at 068f011549ed501d3d49c6258ee9467532d68cb0. The demo whee
 - National registration, state-specific license and insurance evidence review, coverage management, approval workflows and contractor dashboard integration.
 - State/ZIP/service matching integration, national lead tracking, payment integration, notifications, and state reporting backed by real national data.
 - New-state landing content and licensed professional restoration photos. Current catalog is preparatory and new-state routes are disabled.
-- Approved national logo, hostname routing and domain/DNS configuration.
+- Hostname routing and domain/DNS configuration. The approved national logo is now installed.
 
 ## Local verification
 

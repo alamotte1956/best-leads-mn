@@ -1,1 +1,7 @@
 :root{font-family:Arial,sans-serif;color:#12243b;background:#fff}body{margin:0}header,footer{background:#11243b;color:white;padding:24px 6%}header a,footer a{color:white;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center;gap:20px}nav{display:flex;gap:24px}main{max-width:1200px;margin:auto;padding:36px 6%}.hero{background:#eef3f8;padding:clamp(28px,5vw,64px);border-left:7px solid #ef7c22}h1{font-size:clamp(32px,5vw,60px);max-width:850px;line-height:1.08}p{line-height:1.7;max-width:780px}.eyebrow{font-weight:bold;color:#a34400}.button{display:inline-block;background:#ef7c22;color:#11243b;padding:16px 22px;border-radius:5px;text-decoration:none;font-weight:bold}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}article{border:1px solid #ced7e0;border-top:4px solid #ef7c22;padding:24px;border-radius:6px}section{margin-bottom:48px}a{color:#174c7c}article span{color:#576575}@media(max-width:600px){header{display:block}nav{margin-top:20px;flex-wrap:wrap}}
+
+/* Preserve the supplied full-color artwork and its trademark at every size. */
+header{flex-wrap:wrap}
+.usa-brand-logo{display:block;flex-shrink:1;width:340px;max-width:100%;padding:10px;background:#fff;border-radius:6px;box-sizing:border-box}
+.usa-brand-logo img{display:block;width:100%;height:auto}
+@media(max-width:600px){.usa-brand-logo{width:280px}}
