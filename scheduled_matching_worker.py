@@ -95,6 +95,10 @@ def process_matching_batch():
                     additional_services_by_contractor=service_map,
                 )
 
+                if result["new_offer"] is not None:
+                    from communications import queue_offer
+                    db.session.flush()
+                    queue_offer(result["new_offer"], db.session.get(Contractor, result["new_offer"].contractor_id))
                 db.session.commit()
 
                 processed += 1

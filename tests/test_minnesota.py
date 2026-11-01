@@ -12,7 +12,7 @@ from contractor_session_security import create_contractor_session_data
 
 class MinnesotaFlows(unittest.TestCase):
     def setUp(self):
-        self.env = patch.dict(os.environ, {'ADMIN_PASSWORD_HASH': generate_password_hash('administrator-test-password'), 'CONTRACTOR_LOGIN_LOCK_SECRET': 's'*40})
+        self.env = patch.dict(os.environ, {'ADMIN_PASSWORD_HASH': generate_password_hash('administrator-test-password'), 'CONTRACTOR_LOGIN_LOCK_SECRET': 's'*40, 'RESEND_API_KEY':'re_test', 'RESEND_FROM_EMAIL':'sender@example.com', 'TWILIO_ACCOUNT_SID':'ACtest', 'TWILIO_AUTH_TOKEN':'twilio_test', 'TWILIO_MESSAGING_SERVICE_SID':'MGtest', 'TWILIO_STATUS_WEBHOOK_URL':'https://example.com/webhooks/twilio/status'})
         self.env.start()
         self.ctx = app.app_context(); self.ctx.push()
         db.drop_all(); db.create_all()
@@ -264,3 +264,178 @@ class MinnesotaFlows(unittest.TestCase):
             'insurance_checked':'yes','license_expires':yesterday,'insurance_expires':yesterday})
         self.assertEqual(response.status_code,400)
         self.assertEqual(CredentialReview.query.count(),0)
+
+    def add_invoice(self):
+        from app import Payment
+        lead=Lead(homeowner_name='Buyer',phone='6125550100',zip_code='55401',service_needed='Mold Remediation')
+        db.session.add(lead);db.session.flush()
+        offer=LeadOffer(lead_id=lead.id,contractor_id=self.contractor.id,status='accepted',accepted_at=datetime.now(timezone.utc),expires_at=datetime.now(timezone.utc)+timedelta(minutes=15))
+        db.session.add(offer);db.session.flush()
+        payment=Payment(offer_id=offer.id,contractor_id=self.contractor.id,amount_cents=2500,currency='usd',price_id='price_test',session_id='cs_test_1',status='open')
+        db.session.add(payment);db.session.commit()
+        return payment
+    def stripe_post(self,payment,event_id='evt_test',amount=2500,kind='checkout.session.completed'):
+        import json,time,hmac
+        obj={'id':payment.session_id,'mode':'payment','payment_status':'paid','amount_total':amount,'currency':'usd','payment_intent':'pi_test','metadata':{'payment_id':str(payment.id),'contractor_id':str(payment.contractor_id)}}
+        if kind=='charge.refunded':obj={'id':'ch_test','payment_intent':'pi_test','amount_refunded':amount}
+        raw=json.dumps({'id':event_id,'type':kind,'livemode':False,'data':{'object':obj}})
+        stamp=str(int(time.time()));signature=hmac.new(b'whsec_test',(stamp+'.'+raw).encode(),hashlib.sha256).hexdigest()
+        with patch.dict(os.environ,{'STRIPE_WEBHOOK_SECRET':'whsec_test','STRIPE_MODE':'test'}):
+            return self.client.post('/webhooks/stripe',data=raw,content_type='application/json',headers={'Stripe-Signature':'t='+stamp+',v1='+signature})
+    def test_signed_stripe_payment_replay_and_refund(self):
+        from app import Delivery
+        payment=self.add_invoice()
+        self.assertEqual(self.stripe_post(payment).status_code,204)
+        self.assertEqual(self.stripe_post(payment).status_code,204)
+        self.assertEqual(self.stripe_post(payment,event_id='evt_second').status_code,204)
+        db.session.refresh(payment);self.assertEqual(payment.status,'paid')
+        self.assertEqual(Delivery.query.filter_by(event_key=f'payment:{payment.id}:receipt').count(),1)
+        self.assertEqual(self.stripe_post(payment,event_id='evt_refund',kind='charge.refunded').status_code,204)
+        db.session.refresh(payment);self.assertEqual(payment.status,'refunded')
+        self.assertEqual(self.stripe_post(payment,event_id='evt_late').status_code,204)
+        db.session.refresh(payment);self.assertEqual(payment.status,'refunded')
+    def test_stripe_rejects_forgery_and_amount_mismatch(self):
+        from app import ProviderEvent
+        payment=self.add_invoice()
+        with patch.dict(os.environ,{'STRIPE_WEBHOOK_SECRET':'whsec_test'}):
+            self.assertEqual(self.client.post('/webhooks/stripe',json={},headers={'Stripe-Signature':'forged'}).status_code,400)
+        self.assertEqual(self.stripe_post(payment,amount=1).status_code,400)
+        db.session.refresh(payment);self.assertEqual(payment.status,'open')
+        self.assertEqual(ProviderEvent.query.count(),0)
+    def test_resend_queue_disabled_and_duplicate_safe(self):
+        from app import Delivery
+        from communications import queue_email,deliver_pending
+        queue_email('test-email','recipient@example.com','Receipt','Saved request');db.session.commit()
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'false'}),patch('communications.resend_email') as send:
+            self.assertEqual(deliver_pending()['disabled'],1);send.assert_not_called()
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'true'}),patch('communications.resend_email',return_value='resend_test') as send:
+            self.assertEqual(deliver_pending()['sent'],1)
+            self.assertEqual(deliver_pending()['sent'],0)
+            self.assertEqual(send.call_count,1)
+        self.assertEqual(Delivery.query.one().status,'sent')
+    def test_uncertain_delivery_is_not_auto_retried(self):
+        from app import Delivery
+        from communications import queue_email,deliver_pending
+        queue_email('test-timeout','recipient@example.com','Receipt','Saved request');db.session.commit()
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'true'}),patch('communications.resend_email',side_effect=TimeoutError) as send:
+            self.assertEqual(deliver_pending()['uncertain'],1)
+            self.assertEqual(deliver_pending()['uncertain'],0)
+            self.assertEqual(send.call_count,1)
+        self.assertEqual(Delivery.query.one().status,'uncertain')
+    def test_sms_requires_consent_at_delivery(self):
+        from app import Delivery
+        from communications import queue_offer,deliver_pending
+        payment=self.add_invoice();offer=db.session.get(LeadOffer,payment.offer_id);offer.status='pending'
+        queue_offer(offer,self.contractor);db.session.commit()
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'false','SMS_SENDING_ENABLED':'true'}),patch('communications.twilio_sms') as send:
+            self.assertEqual(deliver_pending()['suppressed'],1);send.assert_not_called()
+        self.assertEqual(Delivery.query.filter_by(channel='sms').one().status,'suppressed')
+    def test_twilio_signed_status_cannot_regress(self):
+        from app import Delivery
+        from twilio.request_validator import RequestValidator
+        row=Delivery(event_key='sms:test',channel='sms',recipient='6125550100',subject='Offer',body='Test',provider_id='SMtest',status='sent')
+        db.session.add(row);db.session.commit()
+        url='https://example.com/webhooks/twilio/status'
+        with patch.dict(os.environ,{'TWILIO_STATUS_WEBHOOK_URL':url,'TWILIO_AUTH_TOKEN':'twilio_test'}):
+            self.assertEqual(self.client.post('/webhooks/twilio/status',data={'MessageSid':'SMtest','MessageStatus':'delivered'}).status_code,403)
+            for status in ['delivered','failed']:
+                data={'MessageSid':'SMtest','MessageStatus':status}
+                sig=RequestValidator('twilio_test').compute_signature(url,data)
+                self.assertEqual(self.client.post('/webhooks/twilio/status',data=data,headers={'X-Twilio-Signature':sig}).status_code,204)
+        db.session.refresh(row);self.assertEqual(row.status,'delivered')
+    def test_stripe_checkout_uses_server_price_and_session(self):
+        import stripe
+        from app import Payment
+        payment=self.add_invoice();payment.session_id=None;payment.status='creating';db.session.commit()
+        self.contractor_session()
+        config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
+        with patch.dict(os.environ,config),patch.object(stripe.checkout.Session,'create',return_value={'id':'cs_test_new','url':'https://checkout.stripe.com/test'}) as create,patch.object(stripe.checkout.Session,'retrieve',return_value={'status':'open','url':'https://checkout.stripe.com/test'}):
+            data={'_csrf':'csrf-test','amount':'1','contractor_id':'999'}
+            url=f'/contractor/offers/{payment.offer_id}/checkout'
+            self.assertEqual(self.client.post(url,data=data).status_code,303)
+            self.assertEqual(self.client.post(url,data=data).status_code,303)
+            self.assertEqual(create.call_count,1)
+            self.assertEqual(create.call_args.kwargs['line_items'],[{'price':'price_test','quantity':1}])
+    def test_live_stripe_requires_separate_enable_and_integrations_hide_keys(self):
+        import stripe
+        payment=self.add_invoice();self.contractor_session()
+        with patch.dict(os.environ,{'PAYMENTS_ENABLED':'true','STRIPE_MODE':'live','STRIPE_LIVE_PAYMENTS_ENABLED':'false','STRIPE_SECRET_KEY':'sk_live_hidden'}),patch.object(stripe.checkout.Session,'create') as create:
+            self.assertEqual(self.client.post(f'/contractor/offers/{payment.offer_id}/checkout',data={'_csrf':'csrf-test'}).status_code,503)
+            create.assert_not_called()
+            self.admin();response=self.client.get('/admin/integrations')
+            self.assertEqual(response.status_code,200);self.assertNotIn('sk_live_hidden',response.text)
+
+    def test_resend_adapter_uses_transactional_payload_and_key(self):
+        import io,json
+        from app import Delivery
+        from communications import resend_email
+        row=Delivery(event_key='receipt:1',channel='email',recipient='recipient@example.com',subject='Receipt',body='Saved')
+        with patch.dict(os.environ,{'RESEND_API_KEY':'re_dummy','RESEND_FROM_EMAIL':'Restoration <sender@example.com>'}),patch('communications.urlopen',return_value=io.BytesIO(b'{"id":"resend_dummy"}')) as send:
+            self.assertEqual(resend_email(row),'resend_dummy')
+            req=send.call_args.args[0]
+            self.assertEqual(req.full_url,'https://api.resend.com/emails')
+            self.assertEqual(req.get_header('Idempotency-key'),'receipt:1')
+            self.assertEqual(json.loads(req.data)['to'],['recipient@example.com'])
+    def test_early_sms_callback_survives_send_completion(self):
+        from app import Delivery
+        from sqlalchemy import update
+        from twilio.request_validator import RequestValidator
+        row=Delivery(event_key='early-sms',channel='sms',recipient='6125550100',subject='Offer',body='Test',status='sending')
+        db.session.add(row);db.session.commit()
+        base='https://example.com/webhooks/twilio/status';url=base+'?delivery_id='+str(row.id)
+        data={'MessageSid':'SMearly','MessageStatus':'delivered'}
+        with patch.dict(os.environ,{'TWILIO_STATUS_WEBHOOK_URL':base,'TWILIO_AUTH_TOKEN':'twilio_test'}):
+            sig=RequestValidator('twilio_test').compute_signature(url,data)
+            response=self.client.post('/webhooks/twilio/status?delivery_id='+str(row.id),data=data,headers={'X-Twilio-Signature':sig})
+            self.assertEqual(response.status_code,204)
+        db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='sent',provider_id='SMearly'));db.session.commit()
+        db.session.refresh(row);self.assertEqual(row.status,'delivered')
+
+    def test_early_stripe_webhook_cannot_be_downgraded_by_checkout(self):
+        import stripe
+        from app import Payment
+        payment=self.add_invoice();payment.session_id=None;payment.status='creating';db.session.commit()
+        self.contractor_session()
+        def create_session(**kwargs):
+            from types import SimpleNamespace
+            event_payment=SimpleNamespace(id=payment.id,contractor_id=payment.contractor_id,session_id='cs_early')
+            self.assertEqual(self.stripe_post(event_payment,event_id='evt_early').status_code,204)
+            return {'id':'cs_early','url':'https://checkout.stripe.com/test'}
+        config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
+        with patch.dict(os.environ,config),patch.object(stripe.checkout.Session,'create',side_effect=create_session):
+            response=self.client.post(f'/contractor/offers/{payment.offer_id}/checkout',data={'_csrf':'csrf-test'})
+            self.assertEqual(response.status_code,303)
+        db.session.refresh(payment);self.assertEqual(payment.status,'paid');self.assertEqual(payment.session_id,'cs_early')
+
+    def test_service_state_price_selection_is_server_owned(self):
+        import stripe
+        from app import Payment,LeadPrice
+        old=self.add_invoice();offer_id=old.offer_id;db.session.delete(old);db.session.commit()
+        db.session.add_all([LeadPrice(state_code='MN',service_name='Mold Remediation',mode='test',stripe_price_id='price_mn_mold'),LeadPrice(state_code='TX',service_name='Mold Remediation',mode='test',stripe_price_id='price_tx_mold')]);db.session.commit()
+        self.contractor_session()
+        config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
+        price={'active':True,'currency':'usd','type':'one_time','unit_amount':3300}
+        with patch.dict(os.environ,config),patch.object(stripe.Price,'retrieve',return_value=price) as lookup,patch.object(stripe.checkout.Session,'create',return_value={'id':'cs_variable','url':'https://checkout.stripe.com/test'}):
+            response=self.client.post(f'/contractor/offers/{offer_id}/checkout',data={'_csrf':'csrf-test','state':'TX','amount':'1'})
+            self.assertEqual(response.status_code,303)
+            self.assertEqual(lookup.call_args.args[0],'price_mn_mold')
+        stored=Payment.query.one();self.assertEqual(stored.amount_cents,3300);self.assertEqual(stored.price_id,'price_mn_mold')
+    def test_admin_price_mapping_requires_csrf_and_preserves_mode(self):
+        from app import LeadPrice
+        self.assertEqual(self.client.get('/admin/pricing').status_code,403)
+        self.admin()
+        self.assertEqual(self.client.post('/admin/pricing',data={'state':'MN','service':'Mold Remediation','stripe_price_id':'price_mn'}).status_code,400)
+        with patch.dict(os.environ,{'STRIPE_MODE':'test'}):
+            self.assertEqual(self.client.post('/admin/pricing',data={'_csrf':'csrf-test','state':'MN','service':'Mold Remediation','stripe_price_id':'price_mn'}).status_code,302)
+        row=LeadPrice.query.one();self.assertEqual(row.mode,'test');self.assertEqual(row.stripe_price_id,'price_mn')
+    def test_expansion_state_cannot_enter_minnesota_intake(self):
+        response=self.client.post('/api/leads',json={'name':'Homeowner','phone':'6125550100','zip_code':'55401','service_needed':'Mold Remediation','state':'TX'})
+        self.assertEqual(response.status_code,400);self.assertEqual(Lead.query.count(),0)
+
+    def test_missing_email_configuration_does_not_consume_queue(self):
+        from app import Delivery
+        from communications import queue_email,deliver_pending
+        queue_email('missing-config','recipient@example.com','Receipt','Saved');db.session.commit()
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'true','RESEND_FROM_EMAIL':''}),patch('communications.resend_email') as send:
+            self.assertEqual(deliver_pending()['disabled'],1);send.assert_not_called()
+        self.assertEqual(Delivery.query.one().status,'pending')

@@ -46,6 +46,8 @@ AdminLoginAttempt = define_admin_login_attempt(db)
 
 from credential_verification import define_verification
 CredentialReview = define_verification(db)
+from integration_models import define_integrations
+Delivery, Payment, ProviderEvent, LeadPrice = define_integrations(db)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -519,6 +521,9 @@ def signup():
                         )
                     )
 
+                from communications import queue_email
+                queue_email(f'application:{contractor.id}:received', contractor.email,
+                            'Application received', 'Your Minnesota contractor application was received. Review and approval are required before account access or lead eligibility.')
                 db.session.commit()
                 flash("Application received. Approval is required before leads can be assigned.", "success")
                 return redirect(url_for("signup"))
@@ -563,6 +568,9 @@ def submit_lead():
         return render_template("index.html", landing_pages=LANDING_PAGES,
                                request_error=message), status
 
+    if str(data.get('state','MN')).strip().upper() not in ('MN','MINNESOTA'):
+        return submission_error('Only Minnesota requests are currently accepted.')
+
     name = clean(data.get("homeowner_name") or data.get("name"), 100)
     phone = clean(data.get("phone"), 20)
     email = clean(data.get("email"), 120).lower()
@@ -582,6 +590,10 @@ def submit_lead():
             description=description or None, status="New"
         )
         db.session.add(lead)
+        db.session.flush()
+        from communications import queue_email
+        queue_email(f'lead:{lead.id}:received', lead.email, 'Restoration request received',
+                    f'Your restoration request #{lead.id} was saved. Matching is pending. This is not a confirmed appointment.')
         db.session.commit()
         session["last_lead_reference"] = lead.id
         # No automatic assignment yet. Do not report "matched" when no
@@ -1162,6 +1174,19 @@ from operations import operations
 app.register_blueprint(operations)
 from credential_verification import verification
 app.register_blueprint(verification)
+from communications import communications
+from billing import billing
+app.register_blueprint(communications)
+app.register_blueprint(billing)
+from provider_admin import provider_admin
+app.register_blueprint(provider_admin)
+
+@app.cli.command('deliver-notifications')
+def deliver_notifications_command():
+    from communications import deliver_pending
+    import click
+    click.echo(deliver_pending())
+
 
 from werkzeug.exceptions import HTTPException
 
