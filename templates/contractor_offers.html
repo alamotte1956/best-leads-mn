@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>My Lead Offers | Restoration Contractors MN</title>
     <style>
+        [hidden] { display: none !important; }
+        button { min-height: 44px; cursor: pointer; }
+        :focus-visible { outline: 3px solid #f58232; outline-offset: 3px; }
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -232,6 +235,10 @@
 </section>
 
 <h1>My Lead Offers</h1>
+<p>Review each opportunity before accepting. Homeowner contact details appear after acceptance.</p>
+<nav aria-label="Filter lead offers" style="display:flex;gap:12px;flex-wrap:wrap;margin:20px 0">
+{% for status in ['all','pending','accepted','declined','expired'] %}<button type="button" data-filter-offers="{{ status }}" aria-pressed="{{ 'true' if status == 'all' else 'false' }}">{{ status|capitalize }}{% if status != 'all' %} ({{ offers|selectattr('status','equalto',status)|list|length }}){% endif %}</button>{% endfor %}</nav>
+<p id="offer-filter-result" role="status" aria-live="polite"></p>
     <p>Pending offers must be accepted within 15 minutes.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
@@ -341,5 +348,7 @@
     setInterval(updateTimers, 1000);
 })();
 </script>
-</body>
+<script>
+(function(){const cards=Array.from(document.querySelectorAll('.offer'));const controls=document.querySelectorAll('[data-filter-offers]');controls.forEach(function(control){control.addEventListener('click',function(){let count=0;controls.forEach(b=>b.setAttribute('aria-pressed',String(b===control)));cards.forEach(function(card){card.hidden=control.dataset.filterOffers!=='all'&&card.dataset.offerStatus!==control.dataset.filterOffers;if(!card.hidden)count++;});document.getElementById('offer-filter-result').textContent=count+' offers shown';});});}());
+</script></body>
 </html>

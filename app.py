@@ -390,6 +390,8 @@ def admin_dashboard():
     return render_template(
         "admin.html",
         verified_contractor_count=verified_contractor_count,
+        total_lead_count=Lead.query.count(),
+        pending_contractor_count=Contractor.query.filter_by(active=False).count(),
         leads=leads,
         contractors=contractors,
     )
@@ -411,7 +413,7 @@ def admin_logout():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", landing_pages=LANDING_PAGES)
 
 
 @app.route("/health")
@@ -539,6 +541,12 @@ def submit_lead():
             "message": "Unsupported submission format"
         }), 415
 
+    def submission_error(message, status=400):
+        if is_json_submission:
+            return jsonify({"status": "error", "message": message}), status
+        return render_template("index.html", landing_pages=LANDING_PAGES,
+                               request_error=message), status
+
     name = clean(data.get("homeowner_name") or data.get("name"), 100)
     phone = clean(data.get("phone"), 20)
     email = clean(data.get("email"), 120).lower()
@@ -547,9 +555,9 @@ def submit_lead():
     description = clean(data.get("description"), 5000)
 
     if not name or not valid_phone(phone) or not valid_zip(zip_code) or not service:
-        return jsonify({"status": "error", "message": "Valid name, phone, ZIP and service are required"}), 400
+        return submission_error("Please enter your name, a valid phone number, a five-digit ZIP code, and the service you need.")
     if email and not valid_email(email):
-        return jsonify({"status": "error", "message": "Invalid email address"}), 400
+        return submission_error("Please check your email address or leave it blank.")
 
     try:
         lead = Lead(
@@ -559,6 +567,7 @@ def submit_lead():
         )
         db.session.add(lead)
         db.session.commit()
+        session["last_lead_reference"] = lead.id
         # No automatic assignment yet. Do not report "matched" when no
         # exclusive assignment has actually been created.
         if not is_json_submission:
@@ -573,7 +582,7 @@ def submit_lead():
     except Exception:
         db.session.rollback()
         app.logger.exception("Lead creation failed")
-        return jsonify({"status": "error", "message": "Unable to save request"}), 500
+        return submission_error("We could not save your request. Your details are still here; please try again later.", 500)
 
 
 

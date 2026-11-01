@@ -120,3 +120,15 @@ class MinnesotaFlows(unittest.TestCase):
         db.session.add_all(offers); db.session.commit()
         self.assertIsNotNone(accept_contractor_offer(db.session,offers[0].id,self.contractor.id)); db.session.commit()
         self.assertIsNone(accept_contractor_offer(db.session,offers[1].id,self.contractor.id)); db.session.rollback()
+
+    def test_friendly_form_errors_keep_details(self):
+        response=self.client.post('/api/leads',data={'name':'Homeowner','phone':'bad','zip_code':'55401','service_needed':'Mold Remediation','description':'Please retain my details'})
+        self.assertEqual(response.status_code,400)
+        self.assertIn('Please retain my details',response.text)
+        self.assertIn('value="Homeowner"',response.text)
+        self.assertIn('Please enter your name',response.text)
+    def test_homepage_avoids_unsubstantiated_claims(self):
+        page=self.client.get('/').text
+        self.assertNotIn('guaranteed to respond',page)
+        self.assertNotIn('cdn.tailwindcss.com',page)
+        self.assertIn('No payment details needed',page)

@@ -1,0 +1,129 @@
+
+    <option value='' disabled {% if not selected_services|default([])|select|list %}selected{% endif %}>Select a service</option>
+    <optgroup label='Water Damage and Flooding'>
+        <option value='Emergency Water Extraction' {% if 'Emergency Water Extraction' in selected_services|default([]) %}selected{% endif %}>Emergency Water Extraction</option>
+        <option value='Flood Damage Restoration' {% if 'Flood Damage Restoration' in selected_services|default([]) %}selected{% endif %}>Flood Damage Restoration</option>
+        <option value='Burst Pipe Water Damage' {% if 'Burst Pipe Water Damage' in selected_services|default([]) %}selected{% endif %}>Burst Pipe Water Damage</option>
+        <option value='Basement Flood Cleanup' {% if 'Basement Flood Cleanup' in selected_services|default([]) %}selected{% endif %}>Basement Flood Cleanup</option>
+        <option value='Sump Pump Failure Cleanup' {% if 'Sump Pump Failure Cleanup' in selected_services|default([]) %}selected{% endif %}>Sump Pump Failure Cleanup</option>
+        <option value='Appliance Leak Cleanup' {% if 'Appliance Leak Cleanup' in selected_services|default([]) %}selected{% endif %}>Appliance Leak Cleanup</option>
+        <option value='Ceiling Water Damage' {% if 'Ceiling Water Damage' in selected_services|default([]) %}selected{% endif %}>Ceiling Water Damage</option>
+        <option value='Drywall Water Damage' {% if 'Drywall Water Damage' in selected_services|default([]) %}selected{% endif %}>Drywall Water Damage</option>
+        <option value='Structural Drying' {% if 'Structural Drying' in selected_services|default([]) %}selected{% endif %}>Structural Drying</option>
+        <option value='Dehumidification' {% if 'Dehumidification' in selected_services|default([]) %}selected{% endif %}>Dehumidification</option>
+        <option value='Water Damage Inspection' {% if 'Water Damage Inspection' in selected_services|default([]) %}selected{% endif %}>Water Damage Inspection</option>
+        <option value='Frozen Pipe Damage' {% if 'Frozen Pipe Damage' in selected_services|default([]) %}selected{% endif %}>Frozen Pipe Damage</option>
+    </optgroup>
+    <optgroup label='Fire and Smoke Damage'>
+        <option value='Fire Damage Restoration' {% if 'Fire Damage Restoration' in selected_services|default([]) %}selected{% endif %}>Fire Damage Restoration</option>
+        <option value='Smoke Damage Cleanup' {% if 'Smoke Damage Cleanup' in selected_services|default([]) %}selected{% endif %}>Smoke Damage Cleanup</option>
+        <option value='Soot Removal' {% if 'Soot Removal' in selected_services|default([]) %}selected{% endif %}>Soot Removal</option>
+        <option value='Fire Odor Removal' {% if 'Fire Odor Removal' in selected_services|default([]) %}selected{% endif %}>Fire Odor Removal</option>
+        <option value='Contents Cleaning After Fire' {% if 'Contents Cleaning After Fire' in selected_services|default([]) %}selected{% endif %}>Contents Cleaning After Fire</option>
+        <option value='Board-Up Services' {% if 'Board-Up Services' in selected_services|default([]) %}selected{% endif %}>Board-Up Services</option>
+        <option value='Fire-Damaged Structural Repairs' {% if 'Fire-Damaged Structural Repairs' in selected_services|default([]) %}selected{% endif %}>Fire-Damaged Structural Repairs</option>
+        <option value='Kitchen Fire Cleanup' {% if 'Kitchen Fire Cleanup' in selected_services|default([]) %}selected{% endif %}>Kitchen Fire Cleanup</option>
+    </optgroup>
+    <optgroup label='Mold and Moisture'>
+        <option value='Mold Inspection' {% if 'Mold Inspection' in selected_services|default([]) %}selected{% endif %}>Mold Inspection</option>
+        <option value='Mold Testing' {% if 'Mold Testing' in selected_services|default([]) %}selected{% endif %}>Mold Testing</option>
+        <option value='Mold Remediation' {% if 'Mold Remediation' in selected_services|default([]) %}selected{% endif %}>Mold Remediation</option>
+        <option value='Black Mold Removal' {% if 'Black Mold Removal' in selected_services|default([]) %}selected{% endif %}>Black Mold Removal</option>
+        <option value='Attic Mold Removal' {% if 'Attic Mold Removal' in selected_services|default([]) %}selected{% endif %}>Attic Mold Removal</option>
+        <option value='Basement Mold Removal' {% if 'Basement Mold Removal' in selected_services|default([]) %}selected{% endif %}>Basement Mold Removal</option>
+        <option value='Crawl Space Mold Removal' {% if 'Crawl Space Mold Removal' in selected_services|default([]) %}selected{% endif %}>Crawl Space Mold Removal</option>
+        <option value='Moisture Intrusion Repair' {% if 'Moisture Intrusion Repair' in selected_services|default([]) %}selected{% endif %}>Moisture Intrusion Repair</option>
+    </optgroup>
+    <optgroup label='Storm and Weather Damage'>
+        <option value='Storm Damage Restoration' {% if 'Storm Damage Restoration' in selected_services|default([]) %}selected{% endif %}>Storm Damage Restoration</option>
+        <option value='Wind Damage Repair' {% if 'Wind Damage Repair' in selected_services|default([]) %}selected{% endif %}>Wind Damage Repair</option>
+        <option value='Hail Damage Repair' {% if 'Hail Damage Repair' in selected_services|default([]) %}selected{% endif %}>Hail Damage Repair</option>
+        <option value='Tornado Damage Repair' {% if 'Tornado Damage Repair' in selected_services|default([]) %}selected{% endif %}>Tornado Damage Repair</option>
+        <option value='Ice Dam Removal' {% if 'Ice Dam Removal' in selected_services|default([]) %}selected{% endif %}>Ice Dam Removal</option>
+        <option value='Ice Dam Water Damage' {% if 'Ice Dam Water Damage' in selected_services|default([]) %}selected{% endif %}>Ice Dam Water Damage</option>
+        <option value='Snow and Ice Damage Repair' {% if 'Snow and Ice Damage Repair' in selected_services|default([]) %}selected{% endif %}>Snow and Ice Damage Repair</option>
+        <option value='Fallen Tree Damage' {% if 'Fallen Tree Damage' in selected_services|default([]) %}selected{% endif %}>Fallen Tree Damage</option>
+        <option value='Emergency Tarping' {% if 'Emergency Tarping' in selected_services|default([]) %}selected{% endif %}>Emergency Tarping</option>
+        <option value='Storm Debris Removal' {% if 'Storm Debris Removal' in selected_services|default([]) %}selected{% endif %}>Storm Debris Removal</option>
+    </optgroup>
+    <optgroup label='Roofing and Exterior'>
+        <option value='Roof Leak Repair' {% if 'Roof Leak Repair' in selected_services|default([]) %}selected{% endif %}>Roof Leak Repair</option>
+        <option value='Roof Replacement' {% if 'Roof Replacement' in selected_services|default([]) %}selected{% endif %}>Roof Replacement</option>
+        <option value='Roof Inspection' {% if 'Roof Inspection' in selected_services|default([]) %}selected{% endif %}>Roof Inspection</option>
+        <option value='Shingle Repair' {% if 'Shingle Repair' in selected_services|default([]) %}selected{% endif %}>Shingle Repair</option>
+        <option value='Flat Roof Repair' {% if 'Flat Roof Repair' in selected_services|default([]) %}selected{% endif %}>Flat Roof Repair</option>
+        <option value='Commercial Roofing' {% if 'Commercial Roofing' in selected_services|default([]) %}selected{% endif %}>Commercial Roofing</option>
+        <option value='Siding Repair' {% if 'Siding Repair' in selected_services|default([]) %}selected{% endif %}>Siding Repair</option>
+        <option value='Siding Replacement' {% if 'Siding Replacement' in selected_services|default([]) %}selected{% endif %}>Siding Replacement</option>
+        <option value='Gutter Repair' {% if 'Gutter Repair' in selected_services|default([]) %}selected{% endif %}>Gutter Repair</option>
+        <option value='Gutter Replacement' {% if 'Gutter Replacement' in selected_services|default([]) %}selected{% endif %}>Gutter Replacement</option>
+        <option value='Window Replacement' {% if 'Window Replacement' in selected_services|default([]) %}selected{% endif %}>Window Replacement</option>
+        <option value='Exterior Door Repair' {% if 'Exterior Door Repair' in selected_services|default([]) %}selected{% endif %}>Exterior Door Repair</option>
+    </optgroup>
+    <optgroup label='Plumbing and Sewer'>
+        <option value='Emergency Plumbing' {% if 'Emergency Plumbing' in selected_services|default([]) %}selected{% endif %}>Emergency Plumbing</option>
+        <option value='Pipe Leak Repair' {% if 'Pipe Leak Repair' in selected_services|default([]) %}selected{% endif %}>Pipe Leak Repair</option>
+        <option value='Burst Pipe Repair' {% if 'Burst Pipe Repair' in selected_services|default([]) %}selected{% endif %}>Burst Pipe Repair</option>
+        <option value='Sewer Backup Cleanup' {% if 'Sewer Backup Cleanup' in selected_services|default([]) %}selected{% endif %}>Sewer Backup Cleanup</option>
+        <option value='Sewer Line Repair' {% if 'Sewer Line Repair' in selected_services|default([]) %}selected{% endif %}>Sewer Line Repair</option>
+        <option value='Drain Cleaning' {% if 'Drain Cleaning' in selected_services|default([]) %}selected{% endif %}>Drain Cleaning</option>
+        <option value='Water Heater Leak Repair' {% if 'Water Heater Leak Repair' in selected_services|default([]) %}selected{% endif %}>Water Heater Leak Repair</option>
+        <option value='Toilet Overflow Cleanup' {% if 'Toilet Overflow Cleanup' in selected_services|default([]) %}selected{% endif %}>Toilet Overflow Cleanup</option>
+        <option value='Sump Pump Repair' {% if 'Sump Pump Repair' in selected_services|default([]) %}selected{% endif %}>Sump Pump Repair</option>
+        <option value='Sump Pump Installation' {% if 'Sump Pump Installation' in selected_services|default([]) %}selected{% endif %}>Sump Pump Installation</option>
+    </optgroup>
+    <optgroup label='Electrical and HVAC'>
+        <option value='Emergency Electrical Repair' {% if 'Emergency Electrical Repair' in selected_services|default([]) %}selected{% endif %}>Emergency Electrical Repair</option>
+        <option value='Electrical Panel Repair' {% if 'Electrical Panel Repair' in selected_services|default([]) %}selected{% endif %}>Electrical Panel Repair</option>
+        <option value='Water-Damaged Electrical Systems' {% if 'Water-Damaged Electrical Systems' in selected_services|default([]) %}selected{% endif %}>Water-Damaged Electrical Systems</option>
+        <option value='Electrical Rewiring' {% if 'Electrical Rewiring' in selected_services|default([]) %}selected{% endif %}>Electrical Rewiring</option>
+        <option value='Furnace Repair' {% if 'Furnace Repair' in selected_services|default([]) %}selected{% endif %}>Furnace Repair</option>
+        <option value='Air Conditioning Repair' {% if 'Air Conditioning Repair' in selected_services|default([]) %}selected{% endif %}>Air Conditioning Repair</option>
+        <option value='HVAC Replacement' {% if 'HVAC Replacement' in selected_services|default([]) %}selected{% endif %}>HVAC Replacement</option>
+        <option value='Duct Cleaning' {% if 'Duct Cleaning' in selected_services|default([]) %}selected{% endif %}>Duct Cleaning</option>
+        <option value='HVAC Water Damage' {% if 'HVAC Water Damage' in selected_services|default([]) %}selected{% endif %}>HVAC Water Damage</option>
+        <option value='Ventilation Repair' {% if 'Ventilation Repair' in selected_services|default([]) %}selected{% endif %}>Ventilation Repair</option>
+    </optgroup>
+    <optgroup label='Basement and Foundation'>
+        <option value='Basement Waterproofing' {% if 'Basement Waterproofing' in selected_services|default([]) %}selected{% endif %}>Basement Waterproofing</option>
+        <option value='Foundation Crack Repair' {% if 'Foundation Crack Repair' in selected_services|default([]) %}selected{% endif %}>Foundation Crack Repair</option>
+        <option value='Foundation Water Intrusion' {% if 'Foundation Water Intrusion' in selected_services|default([]) %}selected{% endif %}>Foundation Water Intrusion</option>
+        <option value='Foundation Structural Repair' {% if 'Foundation Structural Repair' in selected_services|default([]) %}selected{% endif %}>Foundation Structural Repair</option>
+        <option value='Crawl Space Encapsulation' {% if 'Crawl Space Encapsulation' in selected_services|default([]) %}selected{% endif %}>Crawl Space Encapsulation</option>
+        <option value='Drain Tile Installation' {% if 'Drain Tile Installation' in selected_services|default([]) %}selected{% endif %}>Drain Tile Installation</option>
+        <option value='Egress Window Leak Repair' {% if 'Egress Window Leak Repair' in selected_services|default([]) %}selected{% endif %}>Egress Window Leak Repair</option>
+    </optgroup>
+    <optgroup label='Interior and Structural Repairs'>
+        <option value='Drywall Repair' {% if 'Drywall Repair' in selected_services|default([]) %}selected{% endif %}>Drywall Repair</option>
+        <option value='Ceiling Repair' {% if 'Ceiling Repair' in selected_services|default([]) %}selected{% endif %}>Ceiling Repair</option>
+        <option value='Flooring Replacement' {% if 'Flooring Replacement' in selected_services|default([]) %}selected{% endif %}>Flooring Replacement</option>
+        <option value='Hardwood Floor Restoration' {% if 'Hardwood Floor Restoration' in selected_services|default([]) %}selected{% endif %}>Hardwood Floor Restoration</option>
+        <option value='Carpet Removal' {% if 'Carpet Removal' in selected_services|default([]) %}selected{% endif %}>Carpet Removal</option>
+        <option value='Insulation Replacement' {% if 'Insulation Replacement' in selected_services|default([]) %}selected{% endif %}>Insulation Replacement</option>
+        <option value='Framing Repair' {% if 'Framing Repair' in selected_services|default([]) %}selected{% endif %}>Framing Repair</option>
+        <option value='Structural Damage Assessment' {% if 'Structural Damage Assessment' in selected_services|default([]) %}selected{% endif %}>Structural Damage Assessment</option>
+        <option value='Kitchen Reconstruction' {% if 'Kitchen Reconstruction' in selected_services|default([]) %}selected{% endif %}>Kitchen Reconstruction</option>
+        <option value='Bathroom Reconstruction' {% if 'Bathroom Reconstruction' in selected_services|default([]) %}selected{% endif %}>Bathroom Reconstruction</option>
+        <option value='Full Property Reconstruction' {% if 'Full Property Reconstruction' in selected_services|default([]) %}selected{% endif %}>Full Property Reconstruction</option>
+    </optgroup>
+    <optgroup label='Environmental and Specialty Cleanup'>
+        <option value='Biohazard Cleanup' {% if 'Biohazard Cleanup' in selected_services|default([]) %}selected{% endif %}>Biohazard Cleanup</option>
+        <option value='Trauma Scene Cleanup' {% if 'Trauma Scene Cleanup' in selected_services|default([]) %}selected{% endif %}>Trauma Scene Cleanup</option>
+        <option value='Hoarding Cleanup' {% if 'Hoarding Cleanup' in selected_services|default([]) %}selected{% endif %}>Hoarding Cleanup</option>
+        <option value='Odor Removal' {% if 'Odor Removal' in selected_services|default([]) %}selected{% endif %}>Odor Removal</option>
+        <option value='Asbestos Abatement' {% if 'Asbestos Abatement' in selected_services|default([]) %}selected{% endif %}>Asbestos Abatement</option>
+        <option value='Lead Paint Abatement' {% if 'Lead Paint Abatement' in selected_services|default([]) %}selected{% endif %}>Lead Paint Abatement</option>
+        <option value='Vandalism Cleanup' {% if 'Vandalism Cleanup' in selected_services|default([]) %}selected{% endif %}>Vandalism Cleanup</option>
+        <option value='Graffiti Removal' {% if 'Graffiti Removal' in selected_services|default([]) %}selected{% endif %}>Graffiti Removal</option>
+        <option value='Commercial Property Cleanup' {% if 'Commercial Property Cleanup' in selected_services|default([]) %}selected{% endif %}>Commercial Property Cleanup</option>
+    </optgroup>
+    <optgroup label='Emergency and Property Services'>
+        <option value='24-Hour Emergency Restoration' {% if '24-Hour Emergency Restoration' in selected_services|default([]) %}selected{% endif %}>24-Hour Emergency Restoration</option>
+        <option value='Emergency Board-Up' {% if 'Emergency Board-Up' in selected_services|default([]) %}selected{% endif %}>Emergency Board-Up</option>
+        <option value='Emergency Property Stabilization' {% if 'Emergency Property Stabilization' in selected_services|default([]) %}selected{% endif %}>Emergency Property Stabilization</option>
+        <option value='Temporary Roof Protection' {% if 'Temporary Roof Protection' in selected_services|default([]) %}selected{% endif %}>Temporary Roof Protection</option>
+        <option value='Contents Pack-Out and Storage' {% if 'Contents Pack-Out and Storage' in selected_services|default([]) %}selected{% endif %}>Contents Pack-Out and Storage</option>
+        <option value='Property Damage Assessment' {% if 'Property Damage Assessment' in selected_services|default([]) %}selected{% endif %}>Property Damage Assessment</option>
+        <option value='Commercial Disaster Restoration' {% if 'Commercial Disaster Restoration' in selected_services|default([]) %}selected{% endif %}>Commercial Disaster Restoration</option>
+        <option value='Other Restoration Service' {% if 'Other Restoration Service' in selected_services|default([]) %}selected{% endif %}>Other Restoration Service</option>
+    </optgroup>
