@@ -113,6 +113,104 @@ class MinnesotaFlows(unittest.TestCase):
         self.assertEqual(self.client.post(f'/admin/contractors/{applicant.id}/status',data={'_csrf':'csrf-test','action':'approve'}).status_code,302)
         db.session.refresh(applicant)
         self.assertTrue(applicant.active); self.assertTrue(applicant.verified)
+    def approve_for_account_notice(self):
+        self.contractor.active=False;self.contractor.verified=False;db.session.commit()
+        self.admin();self.assertEqual(self.record_review().status_code,302)
+        return self.client.post(f'/admin/contractors/{self.contractor.id}/status',
+            data={'_csrf':'csrf-test','action':'approve'})
+
+    def test_approval_notice_requires_final_activation_and_deduplicates(self):
+        from app import ContractorAccountEvent,Delivery
+        self.contractor.active=False;self.contractor.verified=False;db.session.commit();self.admin()
+        path=f'/admin/contractors/{self.contractor.id}/status'
+        self.assertEqual(self.client.post(path,data={'_csrf':'csrf-test','action':'approve'}).status_code,409)
+        self.assertEqual(Delivery.query.count(),0)
+        self.assertEqual(self.record_review().status_code,302)
+        self.assertEqual(Delivery.query.count(),0)  # Credential review alone cannot grant access.
+        for _ in range(2):
+            self.assertEqual(self.client.post(path,data={'_csrf':'csrf-test','action':'approve'}).status_code,302)
+        event=ContractorAccountEvent.query.one();delivery=db.session.get(Delivery,event.delivery_id)
+        self.assertEqual(event.status,'approved');self.assertEqual(delivery.channel,'email')
+        self.assertIn('No charge has been made',delivery.body)
+        self.assertNotIn('test-license-record',delivery.body)
+        self.assertEqual(Delivery.query.count(),1)
+
+    def test_deactivation_cancels_pending_but_preserves_accepted_history(self):
+        from app import ContractorAccountEvent,Delivery
+        payment=self.add_invoice()
+        lead=Lead(homeowner_name='Pending homeowner',phone='6125550111',zip_code='55401',service_needed='Mold Remediation')
+        db.session.add(lead);db.session.flush()
+        pending=LeadOffer(lead_id=lead.id,contractor_id=self.contractor.id,status='pending',
+            offered_at=datetime.now(timezone.utc),expires_at=datetime.now(timezone.utc)+timedelta(minutes=15))
+        db.session.add(pending);db.session.commit();self.admin()
+        path=f'/admin/contractors/{self.contractor.id}/status'
+        for _ in range(2):
+            self.assertEqual(self.client.post(path,data={'_csrf':'csrf-test','action':'deactivate'}).status_code,302)
+        db.session.refresh(pending);self.assertEqual(pending.status,'cancelled')
+        self.assertEqual(db.session.get(LeadOffer,payment.offer_id).status,'accepted')
+        db.session.refresh(payment);self.assertEqual(payment.status,'open')
+        self.assertEqual(ContractorAccountEvent.query.one().status,'deactivated')
+        self.assertEqual(Delivery.query.count(),1)
+
+    def test_latest_account_notice_supersedes_unsent_older_decisions(self):
+        from app import ContractorAccountEvent,Delivery
+        from communications import deliver_pending
+        self.assertEqual(self.approve_for_account_notice().status_code,302)
+        path=f'/admin/contractors/{self.contractor.id}/status'
+        for action in ('deactivate','approve'):
+            self.assertEqual(self.client.post(path,data={'_csrf':'csrf-test','action':action}).status_code,302)
+        self.assertEqual(ContractorAccountEvent.query.count(),3)
+        self.assertEqual(Delivery.query.filter_by(status='cancelled').count(),2)
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'true'}),patch('communications.resend_email',return_value='approved-notice') as send:
+            self.assertEqual(deliver_pending()['sent'],1)
+            self.assertEqual(send.call_count,1)
+            self.assertIn('is approved',send.call_args.args[0].subject)
+        page=self.client.get(f'/admin/contractors/{self.contractor.id}/verification')
+        self.assertEqual(page.status_code,200);self.assertIn('Account activity',page.text)
+
+    def test_rejection_notice_can_reach_inactive_account_without_private_notes(self):
+        from app import ContractorAccountEvent,Delivery
+        from communications import deliver_pending
+        self.admin()
+        for _ in range(2):
+            self.assertEqual(self.record_review(decision='rejected').status_code,302)
+        self.assertEqual(ContractorAccountEvent.query.count(),1)
+        notice=Delivery.query.one()
+        self.assertNotIn('Manually checked test evidence',notice.body)
+        self.assertNotIn('test-insurance-record',notice.body)
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'true'}),patch('communications.resend_email',return_value='rejected-notice') as send,patch('communications.twilio_sms') as sms:
+            self.assertEqual(deliver_pending()['sent'],1);self.assertEqual(send.call_count,1);sms.assert_not_called()
+        db.session.refresh(self.contractor);self.assertFalse(self.contractor.active)
+        self.contractor_session();self.assertEqual(self.client.get('/contractor/billing').status_code,302)
+
+    def test_notice_subject_or_key_cannot_bypass_inactive_recipient_check(self):
+        from app import Delivery
+        from communications import deliver_pending
+        self.contractor.active=False;self.contractor.verified=False
+        db.session.add(Delivery(event_key='account-status:fake',channel='email',recipient=self.contractor.email,
+            contractor_id=self.contractor.id,subject='Your contractor account is approved',body='Forged notice'))
+        db.session.commit()
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'true'}),patch('communications.resend_email') as send:
+            self.assertEqual(deliver_pending()['suppressed'],1);send.assert_not_called()
+
+    def test_account_notice_failure_rolls_back_account_change(self):
+        from app import ContractorAccountEvent,Delivery
+        self.admin()
+        with patch('contractor_account_notifications.queue_account_notice',side_effect=RuntimeError('synthetic failure')),self.assertLogs('app',level='ERROR'):
+            response=self.client.post(f'/admin/contractors/{self.contractor.id}/status',data={'_csrf':'csrf-test','action':'deactivate'})
+        self.assertEqual(response.status_code,500)
+        db.session.refresh(self.contractor);self.assertTrue(self.contractor.active)
+        self.assertEqual(ContractorAccountEvent.query.count(),0);self.assertEqual(Delivery.query.count(),0)
+
+    def test_expired_credentials_cancel_queued_approval_notice(self):
+        from app import CredentialReview,Delivery
+        from communications import deliver_pending
+        self.assertEqual(self.approve_for_account_notice().status_code,302)
+        review=CredentialReview.query.one();review.insurance_expires=(datetime.now(timezone.utc)-timedelta(days=1)).date();db.session.commit()
+        with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'true'}),patch('communications.resend_email') as send:
+            self.assertEqual(deliver_pending()['cancelled'],1);send.assert_not_called()
+        self.assertEqual(Delivery.query.one().status,'cancelled')
+
     def test_only_one_offer_can_be_accepted(self):
         from contractor_offer_transactions import accept_contractor_offer
         lead=Lead(homeowner_name='Homeowner',phone='6125550199',zip_code='55401',service_needed='Mold Remediation')

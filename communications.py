@@ -63,9 +63,10 @@ def twilio_sms(delivery):
 
 
 def deliver_pending(limit=20):
-    from app import db, Delivery, Contractor, LeadOffer, contractor_sms_eligible
+    from app import db, Delivery, Contractor, LeadOffer, ContractorAccountEvent, contractor_sms_eligible
+    from contractor_account_notifications import account_notice_current
     rows = Delivery.query.filter_by(status='pending').order_by(Delivery.id).limit(min(max(limit,1),100)).all()
-    result = {'sent':0,'suppressed':0,'uncertain':0,'disabled':0}
+    result = {'sent':0,'suppressed':0,'uncertain':0,'disabled':0,'cancelled':0}
     for row in rows:
         flag = 'EMAIL_SENDING_ENABLED' if row.channel == 'email' else 'SMS_SENDING_ENABLED'
         if os.environ.get(flag,'').lower() != 'true':
@@ -75,6 +76,11 @@ def deliver_pending(limit=20):
             'TWILIO_ACCOUNT_SID','TWILIO_AUTH_TOKEN','TWILIO_MESSAGING_SERVICE_SID','TWILIO_STATUS_WEBHOOK_URL')
         if not all(os.environ.get(name) for name in required):
             result['disabled'] += 1
+            continue
+        account_event = ContractorAccountEvent.query.filter_by(delivery_id=row.id).first()
+        if account_event and not account_notice_current(row, account_event):
+            db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='pending').values(status='cancelled'))
+            db.session.commit();result['cancelled'] += 1
             continue
         if row.offer_id:
             offer = db.session.get(LeadOffer,row.offer_id)
@@ -100,10 +106,15 @@ def deliver_pending(limit=20):
         if claimed != 1:
             continue
         try:
-            if row.contractor_id:
+            if account_event and not account_notice_current(row, account_event):
+                db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='cancelled'))
+                db.session.commit();result['cancelled'] += 1
+                continue
+            if row.contractor_id and not account_event:
                 contractor=db.session.get(Contractor,row.contractor_id)
-                db.session.refresh(contractor)
-                if not contractor.active or not contractor.verified or not contractor.credential_review_current or (row.channel=='sms' and not contractor_sms_eligible(contractor)):
+                if contractor:
+                    db.session.refresh(contractor)
+                if not contractor or not contractor.active or not contractor.verified or not contractor.credential_review_current or (row.channel=='sms' and not contractor_sms_eligible(contractor)):
                     db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='suppressed'))
                     db.session.commit();result['suppressed'] += 1
                     continue

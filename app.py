@@ -53,6 +53,8 @@ Delivery, Payment, ProviderEvent, LeadPrice = define_integrations(db)
 from email_delivery import define_email_tracking, email_delivery
 ResendEvent, EmailSuppression = define_email_tracking(db)
 app.register_blueprint(email_delivery)
+from contractor_account_notifications import define_account_events
+ContractorAccountEvent = define_account_events(db)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -341,15 +343,26 @@ def admin_contractor_status(contractor_id):
         abort(404)
 
     try:
-        contractor = Contractor.query.filter_by(id=contractor_id).with_for_update().one()
+        contractor = Contractor.query.filter_by(id=contractor_id).populate_existing().with_for_update().one()
+        from sqlalchemy import update, or_
+        from contractor_account_notifications import queue_account_notice
         if action == 'approve':
             from credential_verification import latest_review, review_valid
-            if not review_valid(contractor, latest_review(contractor)):
+            review = latest_review(contractor)
+            if not review_valid(contractor, review):
                 abort(409, 'Record a current approved license and insurance review before activation.')
-            contractor.active = True
-            contractor.verified = True
+            changed = db.session.execute(update(Contractor).where(Contractor.id == contractor_id,
+                or_(Contractor.active.is_not(True), Contractor.verified.is_not(True))
+            ).values(active=True, verified=True)).rowcount
+            if changed == 1:
+                queue_account_notice(contractor, 'approved', review_id=review.id)
         else:
-            contractor.active = False
+            changed = db.session.execute(update(Contractor).where(Contractor.id == contractor_id,
+                Contractor.active.is_(True)).values(active=False)).rowcount
+            db.session.execute(update(LeadOffer).where(LeadOffer.contractor_id == contractor_id,
+                LeadOffer.status == 'pending').values(status='cancelled'))
+            if changed == 1:
+                queue_account_notice(contractor, 'deactivated')
 
         db.session.commit()
     except HTTPException:

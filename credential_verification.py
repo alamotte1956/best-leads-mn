@@ -81,16 +81,23 @@ def review_credentials(contractor_id):
             error = str(exc)
         if error is None:
             try:
-                contractor = Contractor.query.filter_by(id=contractor_id).with_for_update().one()
-                db.session.add(CredentialReview(contractor_id=contractor_id, decision=decision,
+                contractor = Contractor.query.filter_by(id=contractor_id).populate_existing().with_for_update().one()
+                previous_review = latest_review(contractor)
+                was_enabled = bool(contractor.active or contractor.verified)
+                review = CredentialReview(contractor_id=contractor_id, decision=decision,
                     license_number=contractor.license_number or '', license_expires=license_expires,
                     insurance_expires=insurance_expires, license_reference=license_reference,
-                    insurance_reference=insurance_reference, notes=notes))
+                    insurance_reference=insurance_reference, notes=notes)
+                db.session.add(review)
                 if decision == 'rejected':
                     contractor.active = False
                     contractor.verified = False
                     db.session.execute(update(LeadOffer).where(LeadOffer.contractor_id == contractor_id,
                         LeadOffer.status == 'pending').values(status='cancelled'))
+                    if was_enabled or not previous_review or previous_review.decision != 'rejected':
+                        from contractor_account_notifications import queue_account_notice
+                        db.session.flush()
+                        queue_account_notice(contractor, 'review_rejected', review_id=review.id)
                 db.session.commit()
             except Exception:
                 db.session.rollback()
@@ -99,4 +106,9 @@ def review_credentials(contractor_id):
             return redirect(url_for('verification.review_credentials', contractor_id=contractor_id))
     reviews = CredentialReview.query.filter_by(contractor_id=contractor_id).order_by(CredentialReview.id.desc()).limit(20).all()
     from minnesota_lookup_sources import MN_LOOKUP_SOURCES
-    return render_template('credential_review.html', contractor=contractor, reviews=reviews, error=error, lookup_sources=MN_LOOKUP_SOURCES), 400 if error else 200
+    from app import ContractorAccountEvent, Delivery
+    account_events = db.session.query(ContractorAccountEvent, Delivery).join(
+        Delivery, Delivery.id == ContractorAccountEvent.delivery_id).filter(
+        ContractorAccountEvent.contractor_id == contractor_id).order_by(ContractorAccountEvent.id.desc()).limit(20).all()
+    return render_template('credential_review.html', contractor=contractor, reviews=reviews,
+        error=error, lookup_sources=MN_LOOKUP_SOURCES, account_events=account_events), 400 if error else 200

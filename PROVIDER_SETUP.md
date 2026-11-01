@@ -4,13 +4,17 @@ The code integrations are present. The Albert LaMotte Stripe sandbox is connecte
 
 ## Database and operating controls
 
-Review and apply additive migrations 001 through 005 to an isolated staging PostgreSQL database first. Migration 004 adds daily benchmark evidence and quote fields; 005 adds Resend event audit and email suppression tables. Historical records are retained. Obtain explicit authorization before production changes. The five expansion states and real rewards remain disabled.
+Review and apply additive migrations 001 through 006 to an isolated staging PostgreSQL database first. Migration 004 adds daily benchmark evidence and quote fields; 005 adds Resend event audit and email suppression tables; 006 adds contractor account decisions linked to their email notices. Historical records are retained. Obtain explicit authorization before production changes. The five expansion states and real rewards remain disabled.
 
 `/admin/integrations` shows enabled switches, missing configuration names and recent delivery/payment statuses without showing key values. Account presence is not proof of provider verification or successful live operation.
 
 ## Resend
 
-Resend is the selected email provider for both consumers and contractors. Consumer request receipts, contractor application receipts, contractor lead-offer notifications and contractor payment confirmations use the same Resend outbox. Consumer email remains optional; SMS delivery is separate. This integration sends transactional notifications; two-way inbox/reply handling and marketing campaigns are not implemented.
+Resend is the selected email provider for both consumers and contractors. Consumer request receipts, contractor application receipts, account approval/deactivation/rejection notices, contractor lead-offer notifications and contractor payment confirmations use the same Resend outbox. Consumer email remains optional; SMS delivery is separate. This integration sends transactional notifications; two-way inbox/reply handling and marketing campaigns are not implemented.
+
+Account decisions, append-only activity records and their notices commit in one database transaction. Repeating an unchanged approval/deactivation does not enqueue another notice. Repeated rejected reviews retain review history without repeating an unchanged rejection notice. Deactivation cancels pending offers and retains accepted offers and payments. Later account decisions cancel older pending notices. Before sending, the worker rechecks the current decision, account state, recipient address and credentials. In-flight email cannot be recalled; use the current account state as authoritative. Changing account contact addresses requires reconciliation, not redirecting a queued notice automatically.
+
+Deactivation and rejection notices may reach inactive accounts only through their authenticated administrator-created activity record. Ordinary lead notifications still require an approved, active, verified contractor. Private credential-review notes and evidence references are excluded from notice bodies. The credential-review screen shows the latest 20 account decisions with their email statuses. Existing approvals are not backfilled or emailed. Password setup links remain administrator-issued and shared privately; an approval notice does not issue a password, authorize a payment or guarantee lead availability. Confirm a working support contact on the branded website before enabling these notices.
 
 Verify the sender domain in Resend and configure its required DNS records. Set RESEND_API_KEY and RESEND_FROM_EMAIL to an authorized sender, then enable EMAIL_SENDING_ENABLED only for the intended environment. Homeowner request receipts (where an email was supplied), application receipts, lead-offer emails and payment confirmations are queued transactionally.
 
