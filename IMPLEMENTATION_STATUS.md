@@ -107,3 +107,10 @@ The Albert LaMotte Stripe sandbox was selected by the owner, connected through t
 48 automated Python tests and three browser fallback checks pass. Tests cover real local Stripe/Twilio signature validation with synthetic events, replay/mismatch/refund cases, early callbacks, server-owned variable pricing, live-mode gates, missing configuration, consent suppression, Resend request shape, delivery deduplication and uncertainty. Sending and checkout creation were mocked. The three new screens passed nine Chromium viewport checks without horizontal overflow.
 
 Review PROVIDER_SETUP.md and provider-settings.example. Apply additive PostgreSQL migrations 001, 002 and 003 in staging before deployment; none were applied to production. Real provider sandbox tests, PostgreSQL concurrency, Resend bounce/suppression automation, closed-session reconciliation, disputes and refund initiation remain required before release. Five expansion states, live delivery, live charges and real rewards remain disabled by default.
+
+
+## Future Minnesota electronic lookup integration
+
+The owner requested future Minnesota state lookup support. MINNESOTA_LOOKUP_PLAN.md records the confirmed DLI licensing/iMS and nightly-export options, Secretary of State business-record options and workers' compensation lookup as separate evidence sources. It defines an additive adapter/evidence architecture, exact-identity matching, freshness/error handling, an observation-only rollout, access/usage prerequisites and release tests. No public real-time API or general liability insurance feed was assumed or activated.
+
+The manual credential-review screen now includes three official lookup-resource links with scope notes. Its authenticated render was checked locally. No automated external lookup, bulk import, paid subscription, external contact, approval change or database migration was performed for this planning update.

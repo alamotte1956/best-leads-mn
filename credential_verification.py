@@ -98,4 +98,5 @@ def review_credentials(contractor_id):
             flash('Credential review recorded. Approved reviews still require account activation in administration.' if decision == 'approved' else 'Review rejected. Account deactivated and pending offers cancelled.', 'success')
             return redirect(url_for('verification.review_credentials', contractor_id=contractor_id))
     reviews = CredentialReview.query.filter_by(contractor_id=contractor_id).order_by(CredentialReview.id.desc()).limit(20).all()
-    return render_template('credential_review.html', contractor=contractor, reviews=reviews, error=error), 400 if error else 200
+    from minnesota_lookup_sources import MN_LOOKUP_SOURCES
+    return render_template('credential_review.html', contractor=contractor, reviews=reviews, error=error, lookup_sources=MN_LOOKUP_SOURCES), 400 if error else 200
