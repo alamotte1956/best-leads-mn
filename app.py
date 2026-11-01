@@ -59,6 +59,8 @@ from consumer_requests import define_consumer_updates
 ConsumerRequestUpdate = define_consumer_updates(db)
 from lead_lifecycle import define_lead_status_events
 LeadStatusEvent = define_lead_status_events(db)
+from service_requests import define_service_requests
+ServiceRequest = define_service_requests(db)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -1211,6 +1213,8 @@ from provider_admin import provider_admin
 app.register_blueprint(provider_admin)
 from consumer_requests import consumer_requests
 app.register_blueprint(consumer_requests)
+from service_requests import service_requests
+app.register_blueprint(service_requests)
 
 @app.cli.command('refresh-market-benchmarks')
 def refresh_market_benchmarks_command():

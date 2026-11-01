@@ -236,7 +236,7 @@
 </section>
 
 <h1>My Lead Offers</h1>
-<p><a href="/contractor/settings">Manage service area</a> · <a href="/contractor/billing">Payments and receipts</a></p>
+<p><a href="/contractor/settings">Manage services and coverage</a> · <a href="/contractor/billing">Payments and receipts</a></p>
 <p>Review each opportunity before accepting. Homeowner contact details appear after acceptance.</p>
 <nav aria-label="Filter lead offers" style="display:flex;gap:12px;flex-wrap:wrap;margin:20px 0">
 {% for status in ['all','pending','accepted','declined','expired','cancelled'] %}<button type="button" data-filter-offers="{{ status }}" aria-pressed="{{ 'true' if status == 'all' else 'false' }}">{{ status|capitalize }}{% if status != 'all' %} ({{ offers|selectattr('status','equalto',status)|list|length }}){% endif %}</button>{% endfor %}</nav>

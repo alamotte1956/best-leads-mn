@@ -9,6 +9,13 @@ from contractor_matching import contractor_matches
 operations = Blueprint('operations', __name__)
 
 
+@operations.after_request
+def protect_operating_pages(response):
+    from consumer_requests import PRIVATE_HEADERS
+    response.headers.update(PRIVATE_HEADERS)
+    return response
+
+
 def contractor_required(fn):
     @wraps(fn)
     def guarded(*args, **kwargs):
@@ -24,7 +31,8 @@ def contractor_required(fn):
 @operations.route('/contractor/settings', methods=['GET', 'POST'])
 @contractor_required
 def settings(contractor):
-    from app import db, ContractorService, valid_zip
+    from app import db, ServiceRequest, valid_zip
+    from service_requests import registered_services
     error = None
     if request.method == 'POST':
         require_csrf()
@@ -43,9 +51,10 @@ def settings(contractor):
                 raise
             flash('Your service-area ZIP codes have been updated.', 'success')
             return redirect(url_for('operations.settings'))
-    services = ContractorService.query.filter_by(contractor_id=contractor.id).all()
+    services = registered_services(contractor)
     return render_template('contractor_settings.html', contractor=contractor,
-                           services=services, error=error), 400 if error else 200
+        services=services,error=error,service_requests=ServiceRequest.query.filter_by(
+            contractor_id=contractor.id).order_by(ServiceRequest.id.desc()).limit(50).all()),400 if error else 200
 
 
 @operations.get('/admin/leads/<int:lead_id>')

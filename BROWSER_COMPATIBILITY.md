@@ -39,3 +39,7 @@ The new status page, receipt link, homepage navigation and administrator consume
 ## Consumer stop-matching control
 
 The confirmation page, cancelled status and administrator history passed nine additional Chromium checks at 320/768/1440 without horizontal overflow. Browser execution verified Keep matching leaves the request open and a confirmed submission changes it to Cancelled. The control uses server-rendered forms, native confirmation validation, CSRF and POST/redirect/GET; no JavaScript is required. Other engines and physical devices remain unverified.
+
+## Additional-service request workflow
+
+Browser execution verified contractor submission, administrator scope review/approval and updated contractor history. Seven page states were inspected at 320/768/1440, including the request form, review queue, administration navigation, pending/recorded review and contractor settings. Two initial settings measurements were inconsistent with the rendered viewport; screenshot-backed rechecks showed no overflow at all three sizes. The raw measurements and rechecks are retained in service-request-layout-checks.json. Internal review notes were absent from contractor views. Firefox/Safari and physical-device execution remain outstanding.
