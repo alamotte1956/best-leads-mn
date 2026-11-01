@@ -132,3 +132,25 @@ class MinnesotaFlows(unittest.TestCase):
         self.assertNotIn('guaranteed to respond',page)
         self.assertNotIn('cdn.tailwindcss.com',page)
         self.assertIn('No payment details needed',page)
+
+    def test_mobile_markup_across_page_families(self):
+        import re
+        from restoration_landing_pages import LANDING_PAGES
+        from restoration_landing_legacy import PAGES
+        self.admin(); self.contractor_session()
+        routes=['/','/signup','/contractor-signup','/contractors/apply','/request-received','/privacy','/terms','/sms-policy','/admin/login','/contractor/login','/contractor/dashboard','/admin','/admin/national','/admin/owner-command-center','/usa','/usa/minnesota','/usa/minnesota/twin-cities','/contractor/password-setup/preview']
+        routes += ['/services/'+slug for slug in LANDING_PAGES]
+        routes += ['/'+slug for slug in PAGES]
+        for route in routes:
+            response=self.client.get(route)
+            self.assertEqual(response.status_code,200,route)
+            self.assertRegex(response.text,r'meta name=[\"\']viewport[\"\']',route)
+            self.assertIn('/static/css/compatibility.css',response.text,route)
+    def test_responsive_errors_preserve_http_status_and_api_format(self):
+        response=self.client.get('/missing-page')
+        self.assertEqual(response.status_code,404)
+        self.assertIn('/static/css/compatibility.css',response.text)
+        response=self.client.get('/api/leads')
+        self.assertEqual(response.status_code,405)
+        self.assertTrue(response.is_json)
+        self.assertIn('POST',response.headers['Allow'])

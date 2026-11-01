@@ -1,0 +1,33 @@
+# Browser compatibility report
+
+## Scope and result
+
+Applied shared compatibility styling to every page template, including public pages, contractor and administrator screens, policy documents and HTTP error pages. Fixed missing mobile markup on privacy/terms pages. Added shrinkable grid/form children, wrapping for long content and setup URLs, responsive logos, scroll-contained reports, visible focus states, readable native form controls, reduced-motion handling and forced-color borders. Native page zoom remains available.
+
+Replaced the administration page's runtime Tailwind CDN with local CSS. Other page templates already use local or inline styles. The enhanced homeowner request no longer requires Object.fromEntries and checks required features before hiding any form sections. If enhancement is unavailable, the native POST form remains usable. HTTP error pages retain status codes and Allow headers; API errors remain JSON.
+
+## Verification
+
+- 22 Python automated tests passed, including page-family mobile markup checks, form flows and HTTP error response contracts.
+- Three JavaScript feature-fallback checks passed: missing fetch, missing FormData iteration and missing native validation UI. Run `node tests/browser-fallbacks.cjs` from the repository root.
+- Both external JavaScript files passed Node syntax checks.
+- Chromium preview: 33 page routes at 320, 768 and 1440 requested viewport widths, totaling 99 geometry checks. No page-level horizontal overflow. Narrow tables intentionally scroll within a container.
+- Routes include all ten service pages, all four legacy landing pages, registration aliases, policy pages, login/setup screens, Minnesota/national public pages, request receipt, 404 page, administrator screens and an authenticated contractor dashboard with synthetic long-content records.
+- Mobile homeowner submission completed successfully against a local in-memory database. No production records or external messages were used.
+
+## Browser matrix
+
+| Browser / platform | Status |
+| --- | --- |
+| Chromium in-app preview, desktop and responsive viewports | Layout and homeowner submission tested |
+| Chrome and Edge installations | Not separately tested |
+| Brave and Opera | Not separately tested |
+| Firefox desktop / Android | Not executed in this environment |
+| Safari macOS / iPhone / iPad | Not executed in this environment |
+| Chrome Android / Samsung Internet / physical touch devices | Not executed in this environment |
+
+Responsive viewport checks are not physical-device tests. Do not label this a complete cross-browser certification. Current popular browsers are the compatibility target; obsolete Internet Explorer is not a supported target. Before release, run the core request, signup, login, setup-link, admin-review and lead-action flows on current Chrome, Edge, Firefox, Safari/iOS and Android browsers, with portrait/landscape, zoom and keyboard navigation.
+
+## References
+
+The grid minimum-size fix follows [MDN's min-width reference](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/min-width). Form enhancement falls back to ordinary submission when [native reportValidity](https://developer.mozilla.org/en-US/docs/Web/API/HTMLTextAreaElement/reportValidity) is unavailable. These references inform implementation; they do not replace browser execution.

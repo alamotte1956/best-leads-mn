@@ -2,7 +2,8 @@
 (function () {
   'use strict';
   const form = document.getElementById('homeowner-request-form');
-  if (!form || !window.fetch) return;
+  if (!form || !window.fetch || !window.FormData || !Array.from ||
+      !window.FormData.prototype.forEach || !form.querySelector('input').reportValidity) return;
   const steps = Array.from(form.querySelectorAll('[data-request-step]'));
   const next = document.getElementById('request-next');
   const back = document.getElementById('request-back');
@@ -23,7 +24,8 @@
       review.textContent = form.elements.service_needed.value + ' · ZIP ' + form.elements.zip_code.value;
       review.hidden = false;
     }
-    steps[index].querySelector('select,input').focus({preventScroll: true});
+    try { steps[index].querySelector('select,input').focus({preventScroll: true}); }
+    catch (ignored) { steps[index].querySelector('select,input').focus(); }
   }
   form.querySelectorAll('[data-choose-service]').forEach(function(button){
     button.hidden = false;
@@ -45,13 +47,16 @@
     busy = true; submit.disabled = true; back.disabled = true;
     submit.textContent = 'Submitting your request…'; error.hidden = true;
     try {
-      const response = await fetch(form.action, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(Object.fromEntries(new FormData(form)))});
+      const payload = {};
+      new FormData(form).forEach(function(value, key) { payload[key] = value; });
+      const response = await fetch(form.action, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'We could not save your request. Please check your details and try again.');
       window.location.assign('/request-received');
     } catch (failure) {
       error.textContent = failure.message === 'Failed to fetch' ? 'Connection interrupted. Your request may have been received. Please avoid submitting again until your connection is restored.' : failure.message;
-      error.hidden = false; error.scrollIntoView({block:'center'});
+      error.hidden = false;
+      try { error.scrollIntoView({block:'center'}); } catch (ignored) { error.scrollIntoView(); }
       busy = false; submit.disabled = false; back.disabled = false; submit.textContent = 'Submit my request';
     }
   });

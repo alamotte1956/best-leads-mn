@@ -691,6 +691,10 @@ def twilio_sms_webhook():
 
 
 LEGAL_STYLE = """
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Restoration Contractors MN policies</title>
+<link rel="stylesheet" href="/static/css/compatibility.css"></head><body>
 <style>
 body{font-family:Arial,sans-serif;max-width:850px;margin:45px auto;padding:0 20px;
 color:#243342;line-height:1.65}a{color:#1768a0}h1,h2{line-height:1.2}
@@ -755,7 +759,7 @@ def privacy():
         <p>We use administrative and technical safeguards, but no system is
         completely secure. To request access, correction or deletion, use the
         contact information published on our website.</p>
-        <p><em>Last updated: October 27, 2026.</em></p>
+        <p><em>Last updated: October 27, 2026.</em></p></body></html>
         """
     )
 
@@ -803,7 +807,7 @@ def terms():
         <h2>Communications</h2>
         <p>Where SMS is offered, message frequency may vary, message and data rates
         may apply, and users can reply STOP to opt out or HELP for assistance.</p>
-        <p><em>Last updated: October 27, 2026.</em></p>
+        <p><em>Last updated: October 27, 2026.</em></p></body></html>
         """
     )
 
@@ -1137,6 +1141,20 @@ from national import national
 app.register_blueprint(national)
 from contractor_onboarding import onboarding
 app.register_blueprint(onboarding)
+
+from werkzeug.exceptions import HTTPException
+
+@app.errorhandler(HTTPException)
+def browser_error(error):
+    response = error.get_response()
+    if request.is_json or request.path.startswith("/api/"):
+        response.set_data(app.json.dumps({"status": "error", "message": error.description}))
+        response.content_type = "application/json"
+    else:
+        response.set_data(render_template("error.html", code=error.code,
+                          title=error.name, message=error.description))
+        response.content_type = "text/html; charset=utf-8"
+    return response
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
