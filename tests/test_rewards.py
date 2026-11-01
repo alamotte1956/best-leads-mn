@@ -76,3 +76,36 @@ class RewardTests(unittest.TestCase):
                     return False
         with ThreadPoolExecutor(max_workers=8) as pool:
             self.assertEqual(sum(pool.map(attempt, range(8))), 1)
+
+    def test_concurrent_first_month_uses_one_counter_for_both_entry_methods(self):
+        with self.app.app_context():
+            ids=[self.credit('mixed-'+str(i),'free' if i%2 else 'purchase') for i in range(18)]
+        def attempt(credit):
+            with self.app.app_context():
+                try:
+                    consume_credit(self.db,self.models,1,credit,datetime(2026,11,15,tzinfo=timezone.utc))
+                    self.db.session.commit();return True
+                except ValueError:
+                    self.db.session.rollback();return False
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            self.assertEqual(sum(pool.map(attempt,ids)),10)
+        with self.app.app_context():
+            self.assertEqual(self.db.session.get(self.models[2],(1,'2026-11')).used,10)
+            self.assertEqual(self.models[3].query.count(),10)
+            self.assertEqual(self.models[1].query.filter_by(consumed=True).count(),10)
+
+    def test_same_server_selector_for_purchase_and_free(self):
+        from unittest.mock import patch
+        with self.app.app_context():
+            purchase=self.credit('purchase-selector','purchase');free=self.credit('free-selector','free')
+            with patch('reward_transactions.randbelow',return_value=3) as selector:
+                first=consume_credit(self.db,self.models,1,purchase);second=consume_credit(self.db,self.models,1,free)
+                self.db.session.commit();self.assertEqual(first.prize_index,second.prize_index)
+                self.assertEqual(selector.call_args_list[0],selector.call_args_list[1])
+
+    def test_revoked_business_cannot_consume_existing_credits(self):
+        with self.app.app_context():
+            credit=self.credit('revoked-business')
+            self.db.session.get(self.models[0],1).verified=False;self.db.session.commit()
+            with self.assertRaises(ValueError):consume_credit(self.db,self.models,1,credit)
+            self.db.session.rollback();self.assertFalse(self.db.session.get(self.models[1],credit).consumed)

@@ -14,6 +14,7 @@ STATUS_COPY = {
     'closed': ('Your request is closed', 'Matching has stopped for this request. This status does not confirm that restoration work is complete.'),
     'cancelled': ('Your request is cancelled', 'Matching has stopped for this request. Contact your contractor directly about any project arrangements.'),
     'review': ('Your request is under review', 'Our team needs to review the current request status. No appointment is confirmed here.'),
+    'location_review': ('Your property location needs review', 'Your request is saved. We need to confirm the service jurisdiction before contractor matching. No appointment is confirmed.'),
 }
 
 
@@ -58,6 +59,8 @@ def request_status(lead):
     from app import db, LeadOffer, Contractor
     if lead.status in ('Closed','Cancelled'):
         return lead.status.lower(), None, None
+    if lead.status=='Needs location review':
+        return 'location_review',None,None
     if lead.status != 'New':
         return 'review', None, None
     offers = LeadOffer.query.filter_by(lead_id=lead.id,status='accepted').order_by(LeadOffer.id.desc()).limit(2).all()
@@ -67,8 +70,9 @@ def request_status(lead):
         return 'needs_review', None, None
     offer = offers[0]
     contractor = db.session.get(Contractor, offer.contractor_id)
+    from national_coverage import market_eligible
     if (not contractor or not contractor.active or not contractor.verified or contractor.is_test
-            or not contractor.credential_review_current):
+            or not contractor.credential_review_current or not market_eligible(contractor,lead)):
         return 'needs_review', None, None
     return 'accepted', contractor, offer
 
@@ -99,7 +103,7 @@ def stop_matching():
     if not lead:
         return redirect(url_for('consumer_requests.status'),code=303)
     if request.method == 'GET':
-        if lead.status != 'New':
+        if lead.status not in ('New','Needs location review'):
             return redirect(url_for('consumer_requests.status'),code=303)
         return render_template('stop_matching.html',lead=lead,error=None)
     require_csrf()
@@ -130,11 +134,13 @@ def queue_request_update(lead, state, offer_id=None):
     previous = select(ConsumerRequestUpdate.delivery_id).where(ConsumerRequestUpdate.lead_id == lead.id)
     db.session.execute(update(Delivery).where(Delivery.id.in_(previous),Delivery.status=='pending').values(status='cancelled'))
     title, message = STATUS_COPY[state]
+    from national_coverage import status_origin as original_status_origin
+    status_origin=original_status_origin(lead)
     if state == 'accepted':
         message = 'A contractor has accepted the request. This is not a confirmed appointment. Business contact details are available on your private status page.'
     delivery = Delivery(event_key=f'lead:{lead.id}:update:{state}',channel='email',recipient=lead.email,
         subject='Restoration request update',body=f'Your restoration request #{lead.id}: {title.lower()}. '
-        f'{message} View current details at https://RestorationContractorsMN.com/request-status in the original browser '
+        f'{message} View current details at {status_origin}/request-status in the original browser '
         'used to submit your request. This private status access lasts seven days. No charge has been made by this update.')
     db.session.add(delivery); db.session.flush()
     db.session.add(ConsumerRequestUpdate(lead_id=lead.id,offer_id=offer_id,delivery_id=delivery.id,status=state))

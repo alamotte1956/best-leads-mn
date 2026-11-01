@@ -18,3 +18,6 @@ legal_backups/
 
 landing_backups/
 .venv/
+node_modules/
+ci/test-results/
+ci/playwright-report/

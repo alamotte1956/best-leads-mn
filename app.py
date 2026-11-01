@@ -65,6 +65,14 @@ from notification_preferences import define_notification_preferences
 NotificationPreference, NotificationPreferenceEvent = define_notification_preferences(db)
 from lead_progress import define_lead_progress
 ContractorLeadProgress, LeadProgressEvent = define_lead_progress(db)
+from national_coverage import define_national_coverage
+LeadMarket, MarketApplication, MarketReview, ContractorOrigin = define_national_coverage(db)
+from reward_transactions import define_rewards
+RewardBusiness, RewardCredit, RewardMonth, RewardSpin = define_rewards(db)
+from reward_review import define_reward_review
+RewardIdentityApplication, RewardBusinessAccount, RewardIdentityReview = define_reward_review(db)
+from location_review import define_location_review
+LeadLocationReview=define_location_review(db)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -160,6 +168,14 @@ def csrf_token():
 
 
 app.jinja_env.globals["csrf_token"] = csrf_token
+
+
+@app.after_request
+def protect_account_pages(response):
+    if request.path.startswith(('/contractor/', '/admin')):
+        from consumer_requests import PRIVATE_HEADERS
+        response.headers.update(PRIVATE_HEADERS)
+    return response
 
 
 class SmsSuppression(db.Model):
@@ -459,6 +475,10 @@ def admin_logout():
 
 @app.route("/")
 def index():
+    from national_markets import usa_hostname
+    if usa_hostname(request.host):
+        from national import render_national
+        return render_national()
     return render_template("index.html", landing_pages=LANDING_PAGES)
 
 
@@ -563,7 +583,7 @@ def signup():
                 app.logger.exception("Contractor registration failed")
                 flash("We could not save your application. Please try again later.", "danger")
     # Existing ZIP contains contractor_signup.html, not signup.html.
-    return render_template("contractor_signup.html")
+    return render_template("contractor_signup.html", sms_signup_enabled=os.environ.get('SMS_SENDING_ENABLED','').lower() == 'true')
 
 
 @app.route("/request-received")
@@ -594,11 +614,17 @@ def submit_lead():
     def submission_error(message, status=400):
         if is_json_submission:
             return jsonify({"status": "error", "message": message}), status
+        if state_code and state_code != 'MN' and code_enabled(state_code):
+            market=next(info for info in STATES.values() if info[0]==state_code)
+            return render_template('national_request.html',market=market,request_error=message),status
         return render_template("index.html", landing_pages=LANDING_PAGES,
                                request_error=message), status
 
-    if str(data.get('state','MN')).strip().upper() not in ('MN','MINNESOTA'):
-        return submission_error('Only Minnesota requests are currently accepted.')
+    from national_markets import STATES, code_enabled
+    requested_state=str(data.get('state','MN')).strip().upper()
+    state_code=next((info[0] for slug,info in STATES.items() if requested_state in (info[0],slug.upper(),info[1].upper())),None)
+    if not state_code or not code_enabled(state_code):
+        return submission_error('Only approved launch states accept requests. Minnesota is currently open.')
 
     name = clean(data.get("homeowner_name") or data.get("name"), 100)
     phone = clean(data.get("phone"), 20)
@@ -606,6 +632,10 @@ def submit_lead():
     zip_code = clean(data.get("zip_code"), 10)
     service = clean(data.get("service_needed"), 100)
     description = clean(data.get("description"), 5000)
+    if state_code != 'MN':
+        from service_catalog import SERVICES
+        if service not in SERVICES:
+            return submission_error('Choose a listed restoration service.')
 
     if not name or not valid_phone(phone) or not valid_zip(zip_code) or not service:
         return submission_error("Please enter your name, a valid phone number, a five-digit ZIP code, and the service you need.")
@@ -613,17 +643,25 @@ def submit_lead():
         return submission_error("Please check your email address or leave it blank.")
 
     try:
+        from location_review import needs_location_review,REVIEW_STATUS
+        initial_status=REVIEW_STATUS if needs_location_review(zip_code,state_code) else 'New'
         lead = Lead(
             homeowner_name=name, phone=phone, email=email or None,
             zip_code=zip_code, service_needed=service,
-            description=description or None, status="New"
+            description=description or None, status=initial_status
         )
         db.session.add(lead)
         db.session.flush()
+        from national_markets import usa_hostname
+        hostname=request.host.split(':',1)[0].lower()
+        intake_brand='USA' if usa_hostname(request.host) else 'MN' if hostname in ('restorationcontractorsmn.com','www.restorationcontractorsmn.com') or state_code=='MN' else 'USA'
+        if state_code != 'MN' or intake_brand=='USA':
+            db.session.add(LeadMarket(lead_id=lead.id,state_code=state_code,intake_brand=intake_brand))
         from communications import queue_email
+        status_origin='https://RestorationContractorsUSA.com' if intake_brand=='USA' else 'https://RestorationContractorsMN.com'
         queue_email(f'lead:{lead.id}:received', lead.email, 'Restoration request received',
                     f'Your restoration request #{lead.id} was saved. This is not a confirmed appointment. '
-                    'Check your current status at https://RestorationContractorsMN.com/request-status '
+                    f'Check your current status at {status_origin}/request-status '
                     'in the original browser used to submit the request. Private status access lasts seven days.')
         db.session.commit()
         from consumer_requests import remember_request
@@ -635,10 +673,10 @@ def submit_lead():
 
         return jsonify({
             "status": "success",
-            "message": "Request received. Contractor matching is pending.",
+            "message": "Request received. Contractor matching is pending." if lead.status=='New' else 'Request received. Location review is required before matching.',
             "lead_id": lead.id,
             "status_url": url_for('consumer_requests.status'),
-            "assignment_status": "pending"
+            "assignment_status": "pending" if lead.status=='New' else 'review'
         }), 201
     except Exception:
         db.session.rollback()
@@ -998,6 +1036,7 @@ def contractor_dashboard():
     )
 
     offers = []
+    from billing import offer_contact_available
 
     for offer, lead in rows:
         offers.append({
@@ -1007,7 +1046,7 @@ def contractor_dashboard():
             "zip_code": lead.zip_code,
             "status": offer.status,
             "expires_at": offer.expires_at.replace(tzinfo=timezone.utc) if offer.expires_at.tzinfo is None else offer.expires_at,
-            "contact": {"name": lead.homeowner_name, "phone": lead.phone, "email": lead.email, "description": lead.description} if offer.status == "accepted" else None,
+            "contact": {"name": lead.homeowner_name, "phone": lead.phone, "email": lead.email, "description": lead.description} if offer_contact_available(offer) else None,
         })
 
     return render_template(
@@ -1222,6 +1261,8 @@ from communications import communications
 from billing import billing
 app.register_blueprint(communications)
 app.register_blueprint(billing)
+from billing import offer_contact_available
+app.jinja_env.globals['offer_contact_available'] = offer_contact_available
 from provider_admin import provider_admin
 app.register_blueprint(provider_admin)
 from consumer_requests import consumer_requests
@@ -1232,6 +1273,14 @@ from notification_preferences import notification_preferences
 app.register_blueprint(notification_preferences)
 from lead_progress import lead_progress
 app.register_blueprint(lead_progress)
+from national_coverage import coverage
+app.register_blueprint(coverage)
+from reward_review import reward_review
+app.register_blueprint(reward_review)
+from national_intake import national_intake
+app.register_blueprint(national_intake)
+from location_review import locations
+app.register_blueprint(locations)
 
 @app.cli.command('refresh-market-benchmarks')
 def refresh_market_benchmarks_command():

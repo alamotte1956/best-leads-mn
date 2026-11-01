@@ -14,3 +14,18 @@ def city_slug(name):
 def enabled(slug):
     # Release policy: enabling additional states requires a reviewed code change.
     return slug == 'minnesota'
+
+
+def slug_for_code(code):
+    return next((slug for slug, row in STATES.items() if row[0] == code), None)
+
+
+def code_enabled(code):
+    slug = slug_for_code(code)
+    return bool(slug and enabled(slug))
+
+
+def usa_hostname(host):
+    # Never use suffix matching or forwarded headers to select a brand.
+    return host.split(':', 1)[0].lower() in (
+        'restorationcontractorsusa.com', 'www.restorationcontractorsusa.com')

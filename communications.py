@@ -65,12 +65,23 @@ def twilio_sms(delivery):
 
 
 def deliver_pending(limit=20):
-    from app import db, Delivery, Contractor, LeadOffer, ContractorAccountEvent, ConsumerRequestUpdate, contractor_sms_eligible
+    from app import db, Delivery, Contractor, Lead, LeadOffer, ContractorAccountEvent, ConsumerRequestUpdate, contractor_sms_eligible
+    from national_coverage import market_eligible
     from contractor_account_notifications import account_notice_current
     from consumer_requests import request_update_current
     from notification_preferences import lead_alert_enabled
-    rows = Delivery.query.filter_by(status='pending').order_by(Delivery.id).limit(min(max(limit,1),100)).all()
     result = {'sent':0,'suppressed':0,'uncertain':0,'disabled':0,'cancelled':0}
+    ready=[]
+    for channel,flag,required in (
+        ('email','EMAIL_SENDING_ENABLED',('RESEND_API_KEY','RESEND_FROM_EMAIL')),
+        ('sms','SMS_SENDING_ENABLED',('TWILIO_ACCOUNT_SID','TWILIO_AUTH_TOKEN','TWILIO_MESSAGING_SERVICE_SID','TWILIO_STATUS_WEBHOOK_URL'))):
+        if os.environ.get(flag,'').lower()=='true' and all(os.environ.get(name) for name in required):
+            ready.append(channel)
+    # Disabled/unconfigured SMS must never occupy every batch slot and starve
+    # the email-only launch. Unknown channels are also excluded, failing closed.
+    result['disabled']=Delivery.query.filter(Delivery.status=='pending',~Delivery.channel.in_(ready)).count()
+    rows=Delivery.query.filter(Delivery.status=='pending',Delivery.channel.in_(ready)).order_by(
+        Delivery.id).limit(min(max(limit,1),100)).all()
     for row in rows:
         flag = 'EMAIL_SENDING_ENABLED' if row.channel == 'email' else 'SMS_SENDING_ENABLED'
         if os.environ.get(flag,'').lower() != 'true':
@@ -98,7 +109,8 @@ def deliver_pending(limit=20):
             if deadline and deadline.tzinfo is None:
                 deadline = deadline.replace(tzinfo=timezone.utc)
             if (not offer or offer.status != 'pending' or not deadline or deadline <= datetime.now(timezone.utc)
-                    or not contractor or not contractor.active or not contractor.verified
+                    or not contractor or not contractor.active or not contractor.verified or contractor.is_test
+                    or not market_eligible(contractor, db.session.get(Lead, offer.lead_id))
                     or not contractor.credential_review_current or not lead_alert_enabled(contractor.id,row.channel)
                     or (row.channel == 'sms' and not contractor_sms_eligible(contractor))):
                 db.session.execute(update(Delivery).where(Delivery.id==row.id, Delivery.status=='pending').values(status='suppressed'));db.session.commit();result['suppressed'] += 1
@@ -115,6 +127,14 @@ def deliver_pending(limit=20):
         if claimed != 1:
             continue
         try:
+            if row.offer_id:
+                current_offer = db.session.get(LeadOffer, row.offer_id)
+                current_contractor = db.session.get(Contractor, row.contractor_id)
+                if (not current_offer or current_offer.status != 'pending' or not current_contractor
+                        or not market_eligible(current_contractor, db.session.get(Lead, current_offer.lead_id))):
+                    db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='suppressed'))
+                    db.session.commit();result['suppressed'] += 1
+                    continue
             if row.offer_id and not lead_alert_enabled(row.contractor_id,row.channel):
                 db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='suppressed'))
                 db.session.commit();result['suppressed'] += 1

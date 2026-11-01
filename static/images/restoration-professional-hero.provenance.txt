@@ -1,0 +1,9 @@
+Asset: restoration-professional-hero.png
+Created: 2026-11-01
+Method: built-in image_gen tool, new image generation, opaque background.
+Provenance: AI-generated illustrative scene. This is not a photograph of a real contractor, customer, completed project, or a documented company job. Use descriptive alt text and a visible illustrative-image caption where appropriate. No supplied logo was modified.
+
+Exact final prompt:
+Use case: photorealistic-natural. Asset type: wide landscape hero photograph-style illustration for Restoration Contractors USA state and city landing pages. Primary request: a professional residential restoration technician in navy workwear using a moisture meter against a wall in a bright clean home after a water leak, with a commercial orange air mover and compact dehumidifier nearby. Realistic careful work posture and appropriate work gloves. Natural daylight, reassuring professional editorial photography, authentic room materials, eye-level wide composition with equipment and technician clearly readable, landscape 16:9. No visible damage disaster spectacle. Constraints: no company brands, no logos, no writing, no watermarks, no text overlays; do not imply an actual company project; this is a synthetic illustrative image.
+
+Visual review: landscape 1672 x 941; professional navy workwear and gloves; moisture meter, orange air mover and gray dehumidifier visible; clear natural lighting; no readable company marks or text; suitable for responsive object-fit crops with technician toward center-right. Synthetic controls/equipment details should not be represented as instructional or evidentiary.

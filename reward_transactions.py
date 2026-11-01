@@ -48,7 +48,7 @@ def issue_credit(db, models, business_id, source, kind):
     No public client may supply authorization to this function.
     """
     Business, Credit, _, _ = models
-    business = db.session.get(Business, business_id)
+    business = db.session.query(Business).filter_by(id=business_id).populate_existing().with_for_update().first()
     if not business or not business.verified or kind not in ('purchase', 'free') or not source:
         raise ValueError('Verified business and authorized source required')
     credit = Credit(business_id=business_id, source=source, kind=kind)
@@ -68,13 +68,22 @@ def consume_credit(db, models, business_id, credit_id, now=None):
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
         raise ValueError('Timezone-aware server time required')
-    business = db.session.get(Business, business_id)
+    business = db.session.query(Business).filter_by(id=business_id).populate_existing().with_for_update().first()
     if not business or not business.verified:
         raise ValueError('Verified business required')
     month = now.astimezone(timezone.utc).strftime('%Y-%m')
-    if db.session.get(Month, (business_id, month)) is None:
-        db.session.add(Month(business_id=business_id, month=month, used=0))
-        db.session.flush()
+    # Concurrent first spins must share the same counter rather than fail while
+    # inserting the first monthly row. The following conditional increment still
+    # enforces the cap under the database's writer/row lock.
+    dialect = db.session.get_bind().dialect.name
+    if dialect == 'postgresql':
+        from sqlalchemy.dialects.postgresql import insert
+    elif dialect == 'sqlite':
+        from sqlalchemy.dialects.sqlite import insert
+    else:
+        raise RuntimeError('Reward transactions require a supported locking database')
+    db.session.execute(insert(Month).values(business_id=business_id, month=month, used=0).on_conflict_do_nothing(
+        index_elements=['business_id', 'month']))
     changed = db.session.execute(update(Month).where(
         Month.business_id == business_id, Month.month == month, Month.used < 10
     ).values(used=Month.used + 1)).rowcount

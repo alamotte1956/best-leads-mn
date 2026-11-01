@@ -108,6 +108,11 @@ def detail(contractor,offer_id):
     from app import db,Contractor,LeadOffer,ContractorLeadProgress as Progress,LeadProgressEvent
     offer=LeadOffer.query.filter_by(id=offer_id,contractor_id=contractor.id,status='accepted').first()
     if not offer:abort(404)
+    from billing import offer_contact_available
+    if not offer_contact_available(offer):
+        if request.method == 'POST':
+            require_csrf()
+        return render_template('lead_access_locked.html',offer=offer),402
     error=None;code=200;form_data=None
     if request.method=='POST':
         require_csrf();form_data=request.form

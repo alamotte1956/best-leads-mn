@@ -20,6 +20,7 @@ def define_integrations(db):
         contractor_id = db.Column(db.Integer, db.ForeignKey('contractors.id'), nullable=False)
         amount_cents = db.Column(db.Integer, nullable=False)
         currency = db.Column(db.String(3), nullable=False)
+        mode = db.Column(db.String(10), nullable=False, default='test')
         price_id = db.Column(db.String(150), nullable=False)  # Historical field; new values identify market evidence.
         market_benchmark_id = db.Column(db.Integer, db.ForeignKey('market_lead_benchmarks.id'))
         quote_expires_at = db.Column(db.DateTime(timezone=True))
@@ -28,7 +29,8 @@ def define_integrations(db):
         status = db.Column(db.String(30), nullable=False, default='creating')
         paid_at = db.Column(db.DateTime(timezone=True))
         refunded_cents = db.Column(db.Integer, nullable=False, default=0)
-        __table_args__ = (db.CheckConstraint('amount_cents > 0 AND refunded_cents >= 0 AND refunded_cents <= amount_cents'),)
+        __table_args__ = (db.CheckConstraint('amount_cents > 0 AND refunded_cents >= 0 AND refunded_cents <= amount_cents'),
+                         db.CheckConstraint("mode in ('test','live')", name='lead_payment_mode'))
     class ProviderEvent(db.Model):
         __tablename__ = 'provider_events'
         id = db.Column(db.String(150), primary_key=True)

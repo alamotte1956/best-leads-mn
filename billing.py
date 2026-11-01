@@ -21,6 +21,28 @@ def payment_activation():
         return None
 
 
+def offer_contact_available(offer):
+    """Legacy acceptance is preserved; newly billable contacts need verified payment."""
+    from app import db, Payment, Contractor, Lead
+    from market_pricing import aware
+    if offer.status != 'accepted':
+        return False
+    from national_coverage import market_eligible
+    contractor=db.session.get(Contractor,offer.contractor_id)
+    lead=db.session.get(Lead,offer.lead_id)
+    if not contractor or not lead or not market_eligible(contractor,lead):
+        return False
+    payment = Payment.query.filter_by(offer_id=offer.id, contractor_id=offer.contractor_id).first()
+    if payment:
+        return bool(payment.status == 'paid' and payment.paid_at and payment.refunded_cents < payment.amount_cents
+                    and payment.mode == os.environ.get('STRIPE_MODE','test'))
+    activation = payment_activation()
+    if activation is None and os.environ.get('PAYMENTS_ENABLED','').lower() == 'true':
+        return False
+    # No retroactive fees for pre-activation or undated historical acceptances.
+    return not activation or not offer.accepted_at or aware(offer.accepted_at) < activation
+
+
 
 def stripe_configuration():
     key = os.environ.get('STRIPE_SECRET_KEY','')
@@ -63,6 +85,9 @@ def billable_offer(contractor,offer_id):
     lead = db.session.get(Lead,offer.lead_id)
     if not lead or lead.status != 'New':
         abort(409,'This request is no longer open for new checkout. Existing payment history is retained.')
+    from national_coverage import market_eligible
+    if not market_eligible(contractor, lead):
+        abort(409, 'This state is unavailable or the state coverage approval is no longer current.')
     if not offer.accepted_at or aware(offer.accepted_at)<activation:
         abort(409,'This historical offer is not billable under the activation policy.')
     return offer
@@ -94,6 +119,8 @@ def market_quote(contractor,offer_id):
     offer=billable_offer(contractor,offer_id)
     payment=Payment.query.filter_by(offer_id=offer_id).first()
     if payment:
+        if payment.mode != os.environ.get('STRIPE_MODE','test'):
+            abort(409,'This order belongs to a different Stripe environment. It requires reconciliation.')
         if payment.status in ('paid','refunded'):
             abort(409,'This offer has already been paid.')
         if not payment.market_benchmark_id or not payment.quote_expires_at:
@@ -104,7 +131,7 @@ def market_quote(contractor,offer_id):
         lead=db.session.get(Lead,offer.lead_id)
         evidence=current_benchmark(lead)
         amount,expires=quote_from_benchmark(evidence)
-        payment=Payment(offer_id=offer_id,contractor_id=contractor.id,amount_cents=amount,currency='usd',
+        payment=Payment(offer_id=offer_id,contractor_id=contractor.id,amount_cents=amount,currency='usd',mode=os.environ.get('STRIPE_MODE','test'),
             price_id=f'market:{evidence.id}',market_benchmark_id=evidence.id,quote_expires_at=expires)
         db.session.add(payment)
         try:
@@ -127,6 +154,8 @@ def checkout(contractor,offer_id):
     payment=Payment.query.filter_by(offer_id=offer_id,contractor_id=contractor.id).first()
     if not payment or not payment.market_benchmark_id or not payment.quote_expires_at:
         abort(409,'Request a current market quote before starting checkout. Assigned prices are disabled.')
+    if payment.mode != os.environ.get('STRIPE_MODE','test'):
+        abort(409,'This order belongs to a different Stripe environment. It cannot be charged here.')
     if payment.status in ('paid','refunded'):
         abort(409,'This offer has already been paid.')
     remaining=(aware(payment.quote_expires_at)-datetime.now(timezone.utc)).total_seconds()
@@ -195,7 +224,7 @@ def stripe_webhook():
                     payment=Payment.query.filter_by(id=int(reference),session_id=None,status='creating').with_for_update().first()
             if not payment:
                 abort(409,'Checkout has not been linked yet.')
-            if (obj.get('mode') != 'payment'
+            if (payment.mode != ('live' if event.get('livemode') else 'test') or obj.get('mode') != 'payment'
                 or obj.get('amount_total') != payment.amount_cents or obj.get('currency') != payment.currency
                 or obj.get('metadata',{}).get('payment_id') != str(payment.id)
                 or obj.get('metadata',{}).get('contractor_id') != str(payment.contractor_id)):
@@ -221,6 +250,8 @@ def stripe_webhook():
             payment = Payment.query.filter_by(payment_intent=obj.get('payment_intent')).with_for_update().first()
             if not payment:
                 abort(409,'Payment has not been recorded yet.')
+            if payment.mode != ('live' if event.get('livemode') else 'test'):
+                abort(400,'Payment environment mismatch.')
             refunded = obj.get('amount_refunded',0)
             if type(refunded) is not int or refunded < 0 or refunded > payment.amount_cents:
                 abort(400)

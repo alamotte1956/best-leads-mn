@@ -51,3 +51,10 @@ Contractor preferences, paused/SMS-only states, dashboard/settings navigation an
 ## Accepted-lead follow-up
 
 Accepted/overdue/upcoming lists, contractor detail before/after save, dashboard links, administrator request summary and read-only history passed 24 screenshot-backed Chromium checks at 320/768/1440 with no horizontal overflow. Browser execution saved a synthetic estimate/date/note, retained the earlier report and showed follow-up links only on accepted offers. Forms and pagination are server rendered without JavaScript dependence. Other engines and physical devices remain unverified.
+
+
+## National expansion and prepared multi-engine checks
+
+National home, Minnesota city landing, national operations, private Texas/Florida city previews, state-application queue/review and contractor state request passed 24 Chromium page/width combinations at 320/768/1440 without horizontal overflow or broken local images. The generated restoration scene is labeled illustrative. Additional rewards/location page evidence is recorded in the output report when executed.
+
+Prepared CI config enumerates 56 scenarios across Chromium, branded Chrome/Edge, Firefox, WebKit and Android/iPhone emulation. Tests cover public/private page families at three widths, closed markets/rewards and a no-JavaScript submission/status flow. This configuration has been parsed/listed locally, but those browser-engine runs have not executed. No claim of full Safari, Firefox, Edge or physical-device compatibility is made before their runs pass.

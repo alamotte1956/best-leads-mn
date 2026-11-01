@@ -1,7 +1,8 @@
-<a href="/" aria-label="Restoration Contractors MN home"
+{% set usa_brand = request.host.split(':')[0]|lower in ['restorationcontractorsusa.com', 'www.restorationcontractorsusa.com'] %}
+<a href="/" aria-label="Restoration Contractors {{ 'USA' if usa_brand else 'MN' }} home"
    style="display:block;flex-shrink:0;max-width:100%;background:transparent;">
-    <img src="{{ url_for('static', filename='images/rcmn-logo-tm.png') }}"
-         alt="Restoration Contractors MN — Your Trusted Professionals"
+    <img src="{{ url_for('static', filename='images/rcusa-logo-tm.png' if usa_brand else 'images/rcmn-logo-tm.png') }}"
+         alt="Restoration Contractors {{ 'USA' if usa_brand else 'MN' }} — Your Trusted Professionals"
          width="2172" height="724"
          style="display:block;width:clamp(220px,32vw,340px);max-width:100%;height:auto;object-fit:contain;background:transparent;">
 </a>

@@ -56,7 +56,12 @@ def current_benchmark(lead,now=None):
     from app import MarketBenchmark
     now=now or datetime.now(timezone.utc)
     today_start=datetime.combine(now.astimezone(MARKET_ZONE).date(),time.min,MARKET_ZONE).astimezone(timezone.utc)
-    row=MarketBenchmark.query.filter(MarketBenchmark.state_code=='MN',
+    from national_coverage import lead_state
+    from national_markets import code_enabled
+    state = lead_state(lead)
+    if not code_enabled(state):
+        abort(503, 'This state has not been approved for launch.')
+    row=MarketBenchmark.query.filter(MarketBenchmark.state_code==state,
         MarketBenchmark.service_name==lead.service_needed,MarketBenchmark.zip_code==lead.zip_code,
         MarketBenchmark.observed_at>=today_start,MarketBenchmark.observed_at<=now
     ).order_by(MarketBenchmark.observed_at.desc(),MarketBenchmark.id.desc()).first()

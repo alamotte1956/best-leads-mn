@@ -31,6 +31,9 @@ def contractor_required(fn):
 @operations.route('/contractor/settings', methods=['GET', 'POST'])
 @contractor_required
 def settings(contractor):
+    from national_coverage import minnesota_origin
+    if not minnesota_origin(contractor):
+        return redirect(url_for('coverage.apply'),code=303)
     from app import db, ServiceRequest, valid_zip
     from service_requests import registered_services
     error = None

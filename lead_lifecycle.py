@@ -35,10 +35,11 @@ def end_matching(lead_id, target, *, actor, allow_same=False):
         abort(404)
     if allow_same and lead.status == target:
         return False
-    if lead.status != 'New':
+    if lead.status not in ('New','Needs location review'):
         abort(409, 'Only an open request can be closed or cancelled.')
+    previous_status=lead.status
     changed = db.session.execute(update(Lead).where(Lead.id == lead_id,
-        Lead.status == 'New').values(status=target)).rowcount
+        Lead.status == previous_status).values(status=target)).rowcount
     if changed != 1:
         db.session.refresh(lead)
         if allow_same and lead.status == target:
@@ -46,6 +47,6 @@ def end_matching(lead_id, target, *, actor, allow_same=False):
         abort(409, 'The request changed. Refresh its status before trying again.')
     db.session.execute(update(LeadOffer).where(LeadOffer.lead_id == lead_id,
         LeadOffer.status == 'pending').values(status='cancelled'))
-    db.session.add(LeadStatusEvent(lead_id=lead_id,previous_status='New',new_status=target,actor=actor))
+    db.session.add(LeadStatusEvent(lead_id=lead_id,previous_status=previous_status,new_status=target,actor=actor))
     queue_request_update(lead, target.lower())
     return True

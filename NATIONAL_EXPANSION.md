@@ -1,0 +1,24 @@
+# National expansion readiness
+
+RestorationContractorsUSA.com (including www) serves the national home at `/`. RestorationContractorsMN.com and localhost retain the Minnesota homepage and existing routes. Shared headers select only the exact known USA hostname for the approved USA logo. National pages use the approved USA logo, supplied unchanged. The generated restoration scene is labeled illustrative and its exact prompt/provenance is saved with the image.
+
+The six states and initial cities are in `national_markets.py`. Every state and city has prepared editorial content, responsive imagery, titles, descriptions, breadcrumbs and service/FAQ sections. Only Minnesota is public. `/usa/sitemap.xml` lists only enabled national pages, with a fixed trusted canonical origin. Disabled state pages return 404 and are excluded from public navigation/sitemaps. Authenticated administrators can inspect every page through `/admin/national/preview/<state>[/<city>]`; these responses are private, no-store and noindex.
+
+Approved Minnesota account holders can request additional state coverage through `/contractor/markets`, linked from their coverage settings. This is an account extension workflow, not public lead intake in closed states. Applicants provide exact ZIP coverage, services and state license/registration identifiers. One pending application per contractor/state is enforced by the database. Replacement requests pause earlier state eligibility; original applications and decisions remain in history. Minnesota coverage/services are unchanged.
+
+Administrators review state-specific license/registration evidence, insurance, service/ZIP scope, expiration dates and notes. Applicant-facing responses are separate from private evidence/notes. A decision and its generic email notification commit together. Repeated/concurrent review cannot create a second decision. Approving a state application does not enable the state. Expired evidence, a pending/rejected replacement, revoked account approval and missing state launch approval prevent eligibility.
+
+Migration 012 adds sidecar state scope and state-application/review tables. Existing leads without state scope remain Minnesota; ZIP codes are never used to guess/reclassify old records. National reporting counts leads/open requests, applicants/current coverage, pending review and payment/refund amounts by state. These totals are operational reports, not a financial ledger.
+
+Matching checks global account approval/current credentials, state launch approval, and the new state's separately reviewed exact ZIP/service scope. Minnesota continues using its existing registered service and ZIP fields. Offer acceptance, queued offer dispatch and new billing also reject disabled/out-of-scope state records. Signed historical payment callbacks continue accounting for existing charges.
+
+Before opening a state, complete jurisdiction-specific licensing/insurance policy, reliable ZIP-to-state validation, end-to-end validation of the gated multistate registration/intake, authoritative business verification, authorized daily pricing evidence, PostgreSQL staging execution, provider end-to-end tests, legal terms and launch approval. Public intake and initial account signup remain Minnesota-only while all five new states are locked. Do not equate prepared landing pages or reviewed applications with a launched marketplace.
+
+Validation: 14 national tests include all state/city private previews, hostname spoof resistance, hidden/private routes, applicant ownership, CSRF, evidence/expiry, duplicate review/pending applications, transaction rollback, service/ZIP isolation, disabled matching/acceptance/checkout and state report/refund totals. The latest complete suite passed 203 tests, followed by ten targeted location-history checks after the final audit-field addition. New browser checks cover 24 page/width combinations at 320, 768 and 1440 pixels with no horizontal overflow or broken images in Chromium. Safari, Firefox and physical-device execution remain unverified.
+
+
+## Gated initial registration and intake
+
+`/usa/<state>/contractors/apply` and `/usa/<state>/request` are implemented but return 404 for all five disabled states. Minnesota aliases redirect to its existing forms. Future initial applications create inactive/unverified accounts, a preserved origin state and pending state coverage in one transaction. An out-of-state origin cannot gain Minnesota scope through legacy ZIP settings; it requires a separate Minnesota review. JSON/form requests accept only enabled catalog states and retain explicit state scope. Posted approval/account IDs cannot self-activate accounts or state launches. Tests temporarily substitute the gate only inside isolated test processes.
+
+New location plausibility holds and original intake-brand tracking are covered in LOCATION_REFERENCE.md. A source postal-facility state is never treated as the actual property jurisdiction.
