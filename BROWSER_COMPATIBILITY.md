@@ -43,3 +43,7 @@ The confirmation page, cancelled status and administrator history passed nine ad
 ## Additional-service request workflow
 
 Browser execution verified contractor submission, administrator scope review/approval and updated contractor history. Seven page states were inspected at 320/768/1440, including the request form, review queue, administration navigation, pending/recorded review and contractor settings. Two initial settings measurements were inconsistent with the rendered viewport; screenshot-backed rechecks showed no overflow at all three sizes. The raw measurements and rechecks are retained in service-request-layout-checks.json. Internal review notes were absent from contractor views. Firefox/Safari and physical-device execution remain outstanding.
+
+## Lead-alert controls
+
+Contractor preferences, paused/SMS-only states, dashboard/settings navigation and administrator read-only inspection/navigation passed 21 screenshot-backed Chromium checks at 320/768/1440 with no horizontal overflow. Browser execution saved independent choices and confirmed existing offers remained available. Forms work without JavaScript; checkbox accents use navy with native fallback. Additional browser engines and physical devices remain unverified.

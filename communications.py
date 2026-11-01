@@ -19,13 +19,15 @@ def queue_email(key, email, subject, body):
 
 def queue_offer(offer, contractor):
     from app import db, Delivery
+    from notification_preferences import lead_alert_enabled
     body = 'A restoration lead offer is available. Sign in to your contractor dashboard to review it. Availability expires after 15 minutes.'
-    if contractor.email:
+    if contractor.email and lead_alert_enabled(contractor.id,'email'):
         db.session.add(Delivery(event_key=f'offer:{offer.id}:email',channel='email',
             recipient=contractor.email,subject='New restoration lead offer',body=body,
             contractor_id=contractor.id,offer_id=offer.id))
-    db.session.add(Delivery(event_key=f'offer:{offer.id}:sms',channel='sms',recipient=contractor.phone,
-        subject='Lead offer',body=body+' Reply STOP to opt out.',contractor_id=contractor.id,offer_id=offer.id))
+    if lead_alert_enabled(contractor.id,'sms'):
+        db.session.add(Delivery(event_key=f'offer:{offer.id}:sms',channel='sms',recipient=contractor.phone,
+            subject='Lead offer',body=body+' Reply STOP to opt out.',contractor_id=contractor.id,offer_id=offer.id))
 
 
 def resend_email(delivery):
@@ -66,6 +68,7 @@ def deliver_pending(limit=20):
     from app import db, Delivery, Contractor, LeadOffer, ContractorAccountEvent, ConsumerRequestUpdate, contractor_sms_eligible
     from contractor_account_notifications import account_notice_current
     from consumer_requests import request_update_current
+    from notification_preferences import lead_alert_enabled
     rows = Delivery.query.filter_by(status='pending').order_by(Delivery.id).limit(min(max(limit,1),100)).all()
     result = {'sent':0,'suppressed':0,'uncertain':0,'disabled':0,'cancelled':0}
     for row in rows:
@@ -96,7 +99,7 @@ def deliver_pending(limit=20):
                 deadline = deadline.replace(tzinfo=timezone.utc)
             if (not offer or offer.status != 'pending' or not deadline or deadline <= datetime.now(timezone.utc)
                     or not contractor or not contractor.active or not contractor.verified
-                    or not contractor.credential_review_current
+                    or not contractor.credential_review_current or not lead_alert_enabled(contractor.id,row.channel)
                     or (row.channel == 'sms' and not contractor_sms_eligible(contractor))):
                 db.session.execute(update(Delivery).where(Delivery.id==row.id, Delivery.status=='pending').values(status='suppressed'));db.session.commit();result['suppressed'] += 1
                 continue
@@ -112,6 +115,10 @@ def deliver_pending(limit=20):
         if claimed != 1:
             continue
         try:
+            if row.offer_id and not lead_alert_enabled(row.contractor_id,row.channel):
+                db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='suppressed'))
+                db.session.commit();result['suppressed'] += 1
+                continue
             if consumer_event and not request_update_current(row, consumer_event):
                 db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='cancelled'))
                 db.session.commit();result['cancelled'] += 1

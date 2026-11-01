@@ -61,6 +61,8 @@ from lead_lifecycle import define_lead_status_events
 LeadStatusEvent = define_lead_status_events(db)
 from service_requests import define_service_requests
 ServiceRequest = define_service_requests(db)
+from notification_preferences import define_notification_preferences
+NotificationPreference, NotificationPreferenceEvent = define_notification_preferences(db)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -651,8 +653,12 @@ def normalize_sms_phone(value):
     return digits if len(digits) == 10 else None
 
 
-def contractor_sms_eligible(contractor):
-    """Return True only when automated SMS is permitted."""
+def contractor_sms_eligible(contractor, *, include_preferences=True):
+    """Return True only when automated SMS is permitted.
+
+    The preference bypass is for read-only consent inspection. Senders use the
+    default so contractor alert choices remain part of delivery authorization.
+    """
     if contractor is None:
         return False
 
@@ -677,7 +683,12 @@ def contractor_sms_eligible(contractor):
         phone_normalized=normalized
     ).first()
 
-    return suppressed is None
+    if suppressed is not None:
+        return False
+    if include_preferences:
+        from notification_preferences import lead_alert_enabled
+        return lead_alert_enabled(contractor.id,'sms')
+    return True
 
 
 @app.route("/webhooks/twilio/sms", methods=["POST"])
@@ -1215,6 +1226,8 @@ from consumer_requests import consumer_requests
 app.register_blueprint(consumer_requests)
 from service_requests import service_requests
 app.register_blueprint(service_requests)
+from notification_preferences import notification_preferences
+app.register_blueprint(notification_preferences)
 
 @app.cli.command('refresh-market-benchmarks')
 def refresh_market_benchmarks_command():

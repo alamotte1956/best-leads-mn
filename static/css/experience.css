@@ -3,3 +3,5 @@
 .quick-services{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}.quick-services .button{font-size:13px;padding:10px}
 
 .request-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:16px 24px;margin:24px 0}.request-summary dt{font-size:14px;font-weight:700;color:#536576}.request-summary dd{margin:0;font-size:16px}@media(max-width:500px){.request-summary{grid-template-columns:minmax(0,1fr);gap:6px}.request-summary dd{margin-bottom:12px}}
+
+.check-label input[type=checkbox]{accent-color:var(--navy)}

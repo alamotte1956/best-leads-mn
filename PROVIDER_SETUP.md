@@ -4,7 +4,7 @@ The code integrations are present. The Albert LaMotte Stripe sandbox is connecte
 
 ## Database and operating controls
 
-Review and apply additive migrations 001 through 009 to an isolated staging PostgreSQL database first. Migration 004 adds daily benchmark evidence and quote fields; 005 adds Resend event audit and email suppression tables; 006 adds contractor account decisions; 007 adds consumer request email updates; 008 adds request status-change history; 009 adds reviewed additional-service requests. Historical records are retained. Obtain explicit authorization before production changes. The five expansion states and real rewards remain disabled.
+Review and apply additive migrations 001 through 010 to an isolated staging PostgreSQL database first. Migration 004 adds daily benchmark evidence and quote fields; 005 adds Resend event audit and email suppression tables; 006 adds contractor account decisions; 007 adds consumer request email updates; 008 adds request status-change history; 009 adds reviewed additional-service requests; 010 adds contractor lead-alert choices and change history. Historical records are retained. Obtain explicit authorization before production changes. The five expansion states and real rewards remain disabled.
 
 `/admin/integrations` shows enabled switches, missing configuration names and recent delivery/payment statuses without showing key values. Account presence is not proof of provider verification or successful live operation.
 
@@ -51,6 +51,12 @@ Offer texts are sent only for current pending offers to active, verified contrac
 ## Worker and uncertainty
 
 Schedule `flask --app app deliver-notifications` in the approved environment. It handles up to 20 pending records per invocation. Multiple invocations claim messages using conditional database updates. Separate channel switches default off. Matching queues offer notifications in the same transaction as creating an offer. Existing matching activation controls remain unchanged.
+
+Approved contractors can independently pause email/SMS lead-offer alerts at `/contractor/notifications`. No saved preference retains existing channel defaults, subject to consent, suppression and provider switches. Pausing alerts does not change matching, approval, service permissions or existing offers. Account, application, service-review, consumer and payment emails retain their existing controls. Turning alerts back on affects future offers; previously suppressed outbox records are not revived. Preferences cannot grant SMS consent, remove STOP or email blocks, or enable provider switches.
+
+Preference saves, append-only change history and suppression of pending lead alerts share a transaction. Revision checks prevent a stale form from overwriting another session's changes. Identical retries do not add history records. The queue filters preferences, and the worker checks them again before claiming and immediately before sending. The authoritative SMS eligibility function also enforces SMS preferences for the legacy guarded dispatch helper. Its read-only consent inspection option must not be used by senders. Already-in-flight messages can still arrive; provider-side suppression remains necessary.
+
+Administrators can inspect current choices, consent/block status and the latest ten changes at `/admin/contractors/<id>/notifications`, but cannot override them through that endpoint. The controls, settings and operating pages use private/no-store headers. No existing accounts are backfilled or opted into SMS by migration 010. Test PostgreSQL write races and real provider pause/resume behavior in isolated staging before release.
 
 A provider timeout or process crash after claiming a message can leave `uncertain` or `sending`. Inspect the provider's message records before manually reconciling such a record; do not blindly set it back to pending. The worker prioritizes avoiding duplicate texts over automatic retry availability. No public send endpoint or open email relay exists. Provider-side suppression is still required for opt-out races.
 
