@@ -40,70 +40,109 @@ def stripe_configuration():
     return key,origin
 
 
+def create_checkout(*,api_key,idempotency_key,**params):
+    import stripe
+    return stripe.StripeClient(api_key).v1.checkout.sessions.create(params,
+        options={'idempotency_key':idempotency_key})
+
+
+def retrieve_checkout(session_id,*,api_key):
+    import stripe
+    return stripe.StripeClient(api_key).v1.checkout.sessions.retrieve(session_id)
+
+
+def billable_offer(contractor,offer_id):
+    from app import LeadOffer
+    from market_pricing import aware
+    activation=payment_activation()
+    if activation is None:
+        abort(503,'Configure a timezone-aware payment activation date.')
+    offer=LeadOffer.query.filter_by(id=offer_id,contractor_id=contractor.id,status='accepted').first()
+    if not offer:
+        abort(404)
+    if not offer.accepted_at or aware(offer.accepted_at)<activation:
+        abort(409,'This historical offer is not billable under the activation policy.')
+    return offer
+
+
 @billing.get('/contractor/billing')
 @contractor_required
 def overview(contractor):
-    from app import db, Payment, LeadOffer, Lead, LeadPrice
-    payments = Payment.query.filter_by(contractor_id=contractor.id).order_by(Payment.id.desc()).limit(100).all()
-    offers = LeadOffer.query.filter_by(contractor_id=contractor.id,status='accepted').order_by(LeadOffer.id.desc()).limit(100).all()
+    from app import Payment,LeadOffer
+    from market_pricing import aware
+    payments=Payment.query.filter_by(contractor_id=contractor.id).order_by(Payment.id.desc()).limit(100).all()
+    offers=LeadOffer.query.filter_by(contractor_id=contractor.id,status='accepted').order_by(LeadOffer.id.desc()).limit(100).all()
     activation=payment_activation()
-    configured_services={row.service_name for row in LeadPrice.query.filter_by(state_code='MN',mode=os.environ.get('STRIPE_MODE','test')).all()}
-    paid_offers={p.offer_id for p in payments if p.status in ('paid','refunded')}
-    offers=[offer for offer in offers if activation and offer.accepted_at and
-            (offer.accepted_at.replace(tzinfo=timezone.utc) if offer.accepted_at.tzinfo is None else offer.accepted_at) >= activation
-            and offer.id not in paid_offers and db.session.get(Lead,offer.lead_id).service_needed in configured_services]
+    paid_offers={row.offer_id for row in payments if row.status in ('paid','refunded')}
+    offers=[row for row in offers if activation and row.accepted_at and aware(row.accepted_at)>=activation and row.id not in paid_offers]
     return render_template('billing.html',payments=payments,offers=offers,
         enabled=os.environ.get('PAYMENTS_ENABLED','').lower()=='true' and activation is not None)
+
+
+@billing.post('/contractor/offers/<int:offer_id>/quote')
+@contractor_required
+def market_quote(contractor,offer_id):
+    from app import db,Lead,Payment
+    from market_pricing import current_benchmark,quote_from_benchmark,aware
+    require_csrf()
+    stripe_configuration()
+    offer=billable_offer(contractor,offer_id)
+    payment=Payment.query.filter_by(offer_id=offer_id).first()
+    if payment:
+        if payment.status in ('paid','refunded'):
+            abort(409,'This offer has already been paid.')
+        if not payment.market_benchmark_id or not payment.quote_expires_at:
+            abort(409,'This older order needs reconciliation before market pricing can be applied.')
+        if aware(payment.quote_expires_at)<=datetime.now(timezone.utc):
+            abort(409,'This quote has expired. Administration must reconcile any earlier checkout before it can be replaced.')
+    else:
+        lead=db.session.get(Lead,offer.lead_id)
+        evidence=current_benchmark(lead)
+        amount,expires=quote_from_benchmark(evidence)
+        payment=Payment(offer_id=offer_id,contractor_id=contractor.id,amount_cents=amount,currency='usd',
+            price_id=f'market:{evidence.id}',market_benchmark_id=evidence.id,quote_expires_at=expires)
+        db.session.add(payment)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            abort(409,'Another quote is being prepared. Please refresh your payment history.')
+    return render_template('market_quote.html',payment=payment)
 
 
 @billing.post('/contractor/offers/<int:offer_id>/checkout')
 @contractor_required
 def checkout(contractor,offer_id):
-    import stripe
-    from app import db, Payment, LeadOffer, Lead, LeadPrice
+    import hashlib
+    from app import db,Payment
+    from market_pricing import aware
     require_csrf()
-    key,origin = stripe_configuration()
-    activation=payment_activation()
-    if activation is None:
-        abort(503,'Configure a timezone-aware payment activation date.')
-    offer = LeadOffer.query.filter_by(id=offer_id,contractor_id=contractor.id,status='accepted').first()
-    if not offer:
-        abort(404)
-    accepted=offer.accepted_at
-    if accepted and accepted.tzinfo is None:
-        accepted=accepted.replace(tzinfo=timezone.utc)
-    if not accepted or accepted < activation:
-        abort(409,'This historical offer is not billable under the current activation policy.')
-    payment = Payment.query.filter_by(offer_id=offer_id).first()
-    if payment is None:
-        lead=db.session.get(Lead,offer.lead_id)
-        # All existing and currently accepted intake belongs to Minnesota.
-        # New states stay disabled; do not infer their identity from client input.
-        configured=LeadPrice.query.filter_by(state_code='MN',service_name=lead.service_needed,
-            mode=os.environ.get('STRIPE_MODE','test')).first()
-        if not configured:
-            abort(503,'Pricing for this service and state is not configured.')
-        price_id=configured.stripe_price_id
-        price = as_dict(stripe.Price.retrieve(price_id,api_key=key))
-        if price.get('currency') != 'usd' or not price.get('active') or price.get('type') != 'one_time' or type(price.get('unit_amount')) is not int or price['unit_amount'] <= 0:
-            abort(503,'A fixed one-time lead price is required.')
-        payment = Payment(offer_id=offer_id,contractor_id=contractor.id,
-            amount_cents=price['unit_amount'],currency=price['currency'],price_id=price_id)
-        db.session.add(payment)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback();payment=Payment.query.filter_by(offer_id=offer_id).one()
+    key,origin=stripe_configuration()
+    billable_offer(contractor,offer_id)
+    payment=Payment.query.filter_by(offer_id=offer_id,contractor_id=contractor.id).first()
+    if not payment or not payment.market_benchmark_id or not payment.quote_expires_at:
+        abort(409,'Request a current market quote before starting checkout. Assigned prices are disabled.')
     if payment.status in ('paid','refunded'):
-        abort(409,'This lead has already been paid.')
+        abort(409,'This offer has already been paid.')
+    remaining=(aware(payment.quote_expires_at)-datetime.now(timezone.utc)).total_seconds()
+    if remaining<=0:
+        abort(409,'This quote has expired. It cannot be charged at the old price.')
     if payment.session_id:
-        existing = as_dict(stripe.checkout.Session.retrieve(payment.session_id,api_key=key))
-        if existing.get('status') != 'open':
-            abort(409,'This checkout is no longer open. Contact administration for reconciliation.')
+        existing=as_dict(retrieve_checkout(payment.session_id,api_key=key))
+        if existing.get('status')!='open':
+            abort(409,'Checkout is closed or awaiting confirmation. Please check payment history.')
         return redirect(existing['url'],code=303)
-    created = stripe.checkout.Session.create(api_key=key,mode='payment',payment_method_types=['card'],
-        line_items=[{'price':payment.price_id,'quantity':1}],client_reference_id=str(payment.id),
-        metadata={'payment_id':str(payment.id),'contractor_id':str(contractor.id)},
+    if remaining<30*60+30:
+        abort(409,'Too little quote validity remains to start Stripe Checkout. Request reconciliation for a fresh quote.')
+    suffix=''.join(chr(97+value%26) for value in hashlib.sha256(str(payment.id).encode()).digest()[:8])
+    created=create_checkout(api_key=key,mode='payment',
+        line_items=[{'price_data':{'currency':'usd','unit_amount':payment.amount_cents,
+            'product_data':{'name':f'Restoration lead offer #{offer_id}'}},'quantity':1}],
+        client_reference_id=str(payment.id),
+        integration_identifier='restoration-market-'+suffix,
+        expires_at=int(aware(payment.quote_expires_at).timestamp()),
+        metadata={'payment_id':str(payment.id),'contractor_id':str(contractor.id),
+                  'benchmark_id':str(payment.market_benchmark_id)},
         success_url=origin+'/contractor/billing?returned=1',cancel_url=origin+'/contractor/billing',
         idempotency_key=f'lead-payment:{payment.id}:v1')
     db.session.execute(update(Payment).where(Payment.id==payment.id,Payment.status=='creating',
@@ -129,7 +168,7 @@ def stripe_webhook():
     if bool(event.get('livemode')) != (os.environ.get('STRIPE_MODE','test')=='live'):
         abort(400,'Stripe mode mismatch.')
     kind = event['type'];obj = event['data']['object']
-    if kind not in ('checkout.session.completed','charge.refunded'):
+    if kind not in ('checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','charge.refunded'):
         return '',204
     if db.session.get(ProviderEvent,event['id']):
         return '',204
@@ -142,7 +181,7 @@ def stripe_webhook():
             return '',204
         raise
     try:
-        if kind == 'checkout.session.completed':
+        if kind.startswith('checkout.session.'):
             payment = Payment.query.filter_by(session_id=obj['id']).with_for_update().first()
             if not payment:
                 # A signed callback can arrive before the session-create response.
@@ -151,11 +190,19 @@ def stripe_webhook():
                     payment=Payment.query.filter_by(id=int(reference),session_id=None,status='creating').with_for_update().first()
             if not payment:
                 abort(409,'Checkout has not been linked yet.')
-            if (obj.get('payment_status') != 'paid' or obj.get('mode') != 'payment'
+            if (obj.get('mode') != 'payment'
                 or obj.get('amount_total') != payment.amount_cents or obj.get('currency') != payment.currency
                 or obj.get('metadata',{}).get('payment_id') != str(payment.id)
                 or obj.get('metadata',{}).get('contractor_id') != str(payment.contractor_id)):
                 abort(400,'Payment details do not match the stored order.')
+            if payment.market_benchmark_id and obj.get('metadata',{}).get('benchmark_id')!=str(payment.market_benchmark_id):
+                abort(400,'Market quote does not match the order.')
+            if kind=='checkout.session.async_payment_failed' or obj.get('payment_status')!='paid':
+                if payment.status not in ('paid','refunded'):
+                    payment.session_id=obj['id']
+                    payment.status='failed' if kind=='checkout.session.async_payment_failed' else 'awaiting_payment'
+                db.session.commit()
+                return '',204
             if payment.status not in ('paid','refunded'):
                 payment.session_id=obj['id']
                 payment.status='paid';payment.paid_at=datetime.now(timezone.utc)

@@ -20,7 +20,9 @@ def define_integrations(db):
         contractor_id = db.Column(db.Integer, db.ForeignKey('contractors.id'), nullable=False)
         amount_cents = db.Column(db.Integer, nullable=False)
         currency = db.Column(db.String(3), nullable=False)
-        price_id = db.Column(db.String(150), nullable=False)
+        price_id = db.Column(db.String(150), nullable=False)  # Historical field; new values identify market evidence.
+        market_benchmark_id = db.Column(db.Integer, db.ForeignKey('market_lead_benchmarks.id'))
+        quote_expires_at = db.Column(db.DateTime(timezone=True))
         session_id = db.Column(db.String(150), unique=True)
         payment_intent = db.Column(db.String(150), unique=True)
         status = db.Column(db.String(30), nullable=False, default='creating')

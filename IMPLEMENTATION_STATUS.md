@@ -1,6 +1,6 @@
 # Restoration Contractors USA — implementation status
 
-This branch is a preparatory increment, not the complete platform and not approved for production.
+This branch is a preparatory increment, not the complete platform and not approved for production. Current pricing uses daily competitor evidence as described in MARKET_PRICING.md; historical milestone notes below record earlier work.
 
 ## Implemented
 
@@ -102,7 +102,7 @@ Implemented transactional Resend receipts for homeowner requests, contractor app
 
 Stripe hosted Checkout is authenticated and explicit, prices come from an administrator-managed service/state/mode catalog, and client amounts are ignored. Existing orders retain their saved prices; missing mappings have no fallback fee. Only accepted offers after an explicit activation date can be billed. Signed Stripe callbacks validate mode, linked order, owner metadata, amount, currency and paid status. Unique event records, conditional session persistence, callback-race tests, and monotonic refunds protect accounting. No rewards credits or prizes are issued. Historical Minnesota access/offer behavior remains in place.
 
-The Albert LaMotte Stripe sandbox was selected by the owner, connected through the Stripe plugin and read successfully. It has no active one-time USD prices. Actual prices still require approval/configuration. Application runtime API keys/webhook secrets, Resend domain verification and Twilio sender/campaign configuration are not installed or verified. No real emails, texts, checkout sessions, payments or refunds were created during development.
+The Albert LaMotte Stripe sandbox was selected by the owner, connected through the Stripe plugin and read successfully. It has no active one-time USD prices. The later daily-market policy supersedes fixed-price setup. Application runtime API keys/webhook secrets, Resend domain verification and Twilio sender/campaign configuration are not installed or verified. No real emails, texts, checkout sessions, payments or refunds were created during development.
 
 48 automated Python tests and three browser fallback checks pass. Tests cover real local Stripe/Twilio signature validation with synthetic events, replay/mismatch/refund cases, early callbacks, server-owned variable pricing, live-mode gates, missing configuration, consent suppression, Resend request shape, delivery deduplication and uncertainty. Sending and checkout creation were mocked. The three new screens passed nine Chromium viewport checks without horizontal overflow.
 
@@ -114,3 +114,13 @@ Review PROVIDER_SETUP.md and provider-settings.example. Apply additive PostgreSQ
 The owner requested future Minnesota state lookup support. MINNESOTA_LOOKUP_PLAN.md records the confirmed DLI licensing/iMS and nightly-export options, Secretary of State business-record options and workers' compensation lookup as separate evidence sources. It defines an additive adapter/evidence architecture, exact-identity matching, freshness/error handling, an observation-only rollout, access/usage prerequisites and release tests. No public real-time API or general liability insurance feed was assumed or activated.
 
 The manual credential-review screen now includes three official lookup-resource links with scope notes. Its authenticated render was checked locally. No automated external lookup, bulk import, paid subscription, external contact, approval change or database migration was performed for this planning update.
+
+## Daily marketplace pricing — current policy
+
+Replaced assigned pricing for new checkout with 85% of the lower comparable Angi/Thumbtack lead fee, rounded down to cents. Observations must match service, state and ZIP and be current for the America/Chicago market day. Administrators can review evidence but cannot assign a platform fee. Historical mappings and payments remain stored.
+
+Contractors receive a durable, expiring quote before explicit Stripe payment. No fresh evidence means no quote or guessed fallback. Quotes last at most one hour and never cross market midnight; Stripe minimum validity imposes a cutoff near day end. Expired or older orders require reconciliation before replacement. Delayed payment methods are confirmed only by a signed successful payment event. No rewards are issued.
+
+The trusted refresh command and source-adapter interface are implemented, but NO authorized Angi/Thumbtack daily collector is connected and no real competitor prices were collected. Source access and meaningful comparison validation remain dependencies, as documented in MARKET_PRICING.md. Apply additive migration 004 after 001–003 in staging; production remains untouched.
+
+Validation of daily pricing: 53 automated Python tests and three JavaScript fallback checks pass. Added checks cover 15% rounding, stale evidence, ignored assigned/client prices, expired quotes and delayed payment confirmation. Synthetic observations and mocked Stripe creation are used. Real daily data collection, provider transactions, PostgreSQL execution and browser execution of the new quote screen remain unverified.

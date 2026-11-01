@@ -46,6 +46,8 @@ AdminLoginAttempt = define_admin_login_attempt(db)
 
 from credential_verification import define_verification
 CredentialReview = define_verification(db)
+from market_pricing import define_benchmark
+MarketBenchmark = define_benchmark(db)
 from integration_models import define_integrations
 Delivery, Payment, ProviderEvent, LeadPrice = define_integrations(db)
 
@@ -1180,6 +1182,15 @@ app.register_blueprint(communications)
 app.register_blueprint(billing)
 from provider_admin import provider_admin
 app.register_blueprint(provider_admin)
+
+@app.cli.command('refresh-market-benchmarks')
+def refresh_market_benchmarks_command():
+    from market_pricing import refresh_benchmarks
+    import click
+    try:
+        click.echo({'imported':refresh_benchmarks()})
+    except RuntimeError as error:
+        raise click.ClickException(str(error))
 
 @app.cli.command('deliver-notifications')
 def deliver_notifications_command():

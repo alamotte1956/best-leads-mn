@@ -24,7 +24,7 @@ class MinnesotaFlows(unittest.TestCase):
     def admin(self):
         from admin_session_security import current_password_fingerprint
         with self.client.session_transaction() as s:
-            s.update(admin_authenticated=True, admin_login_at=datetime.now(timezone.utc).timestamp(), admin_password_fingerprint=current_password_fingerprint(), _csrf='csrf-test')
+            s.update(admin_authenticated=True, admin_login_at=datetime.now(timezone.utc).timestamp()-1, admin_password_fingerprint=current_password_fingerprint(), _csrf='csrf-test')
     def contractor_session(self):
         with self.client.session_transaction() as s:
             s.update(create_contractor_session_data(self.contractor.id))
@@ -266,17 +266,22 @@ class MinnesotaFlows(unittest.TestCase):
         self.assertEqual(CredentialReview.query.count(),0)
 
     def add_invoice(self):
-        from app import Payment
+        from app import Payment,MarketBenchmark
         lead=Lead(homeowner_name='Buyer',phone='6125550100',zip_code='55401',service_needed='Mold Remediation')
         db.session.add(lead);db.session.flush()
         offer=LeadOffer(lead_id=lead.id,contractor_id=self.contractor.id,status='accepted',accepted_at=datetime.now(timezone.utc),expires_at=datetime.now(timezone.utc)+timedelta(minutes=15))
         db.session.add(offer);db.session.flush()
-        payment=Payment(offer_id=offer.id,contractor_id=self.contractor.id,amount_cents=2500,currency='usd',price_id='price_test',session_id='cs_test_1',status='open')
+        evidence=MarketBenchmark(state_code='MN',service_name='Mold Remediation',zip_code='55401',observed_at=datetime.now(timezone.utc),angi_cents=4000,thumbtack_cents=2942,angi_reference='synthetic-angi',thumbtack_reference='synthetic-thumbtack',comparison_basis='comparable_contractor_lead_fee',import_key='test-observation')
+        db.session.add(evidence);db.session.flush()
+        payment=Payment(offer_id=offer.id,contractor_id=self.contractor.id,amount_cents=2500,currency='usd',price_id=f'market:{evidence.id}',market_benchmark_id=evidence.id,quote_expires_at=datetime.now(timezone.utc)+timedelta(hours=1),session_id='cs_test_1',status='open')
         db.session.add(payment);db.session.commit()
         return payment
-    def stripe_post(self,payment,event_id='evt_test',amount=2500,kind='checkout.session.completed'):
+    def stripe_post(self,payment,event_id='evt_test',amount=2500,kind='checkout.session.completed',payment_status='paid'):
         import json,time,hmac
-        obj={'id':payment.session_id,'mode':'payment','payment_status':'paid','amount_total':amount,'currency':'usd','payment_intent':'pi_test','metadata':{'payment_id':str(payment.id),'contractor_id':str(payment.contractor_id)}}
+        obj={'id':payment.session_id,'mode':'payment','payment_status':payment_status,'amount_total':amount,'currency':'usd','payment_intent':'pi_test','metadata':{'payment_id':str(payment.id),'contractor_id':str(payment.contractor_id)}}
+        from app import Payment
+        stored=db.session.get(Payment,payment.id)
+        if stored.market_benchmark_id:obj['metadata']['benchmark_id']=str(stored.market_benchmark_id)
         if kind=='charge.refunded':obj={'id':'ch_test','payment_intent':'pi_test','amount_refunded':amount}
         raw=json.dumps({'id':event_id,'type':kind,'livemode':False,'data':{'object':obj}})
         stamp=str(int(time.time()));signature=hmac.new(b'whsec_test',(stamp+'.'+raw).encode(),hashlib.sha256).hexdigest()
@@ -349,17 +354,18 @@ class MinnesotaFlows(unittest.TestCase):
         payment=self.add_invoice();payment.session_id=None;payment.status='creating';db.session.commit()
         self.contractor_session()
         config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
-        with patch.dict(os.environ,config),patch.object(stripe.checkout.Session,'create',return_value={'id':'cs_test_new','url':'https://checkout.stripe.com/test'}) as create,patch.object(stripe.checkout.Session,'retrieve',return_value={'status':'open','url':'https://checkout.stripe.com/test'}):
+        with patch.dict(os.environ,config),patch('billing.create_checkout',return_value={'id':'cs_test_new','url':'https://checkout.stripe.com/test'}) as create,patch('billing.retrieve_checkout',return_value={'status':'open','url':'https://checkout.stripe.com/test'}):
             data={'_csrf':'csrf-test','amount':'1','contractor_id':'999'}
             url=f'/contractor/offers/{payment.offer_id}/checkout'
             self.assertEqual(self.client.post(url,data=data).status_code,303)
             self.assertEqual(self.client.post(url,data=data).status_code,303)
             self.assertEqual(create.call_count,1)
-            self.assertEqual(create.call_args.kwargs['line_items'],[{'price':'price_test','quantity':1}])
+            self.assertEqual(create.call_args.kwargs['line_items'][0]['price_data']['unit_amount'],2500)
+            self.assertNotIn('payment_method_types',create.call_args.kwargs)
     def test_live_stripe_requires_separate_enable_and_integrations_hide_keys(self):
         import stripe
         payment=self.add_invoice();self.contractor_session()
-        with patch.dict(os.environ,{'PAYMENTS_ENABLED':'true','STRIPE_MODE':'live','STRIPE_LIVE_PAYMENTS_ENABLED':'false','STRIPE_SECRET_KEY':'sk_live_hidden'}),patch.object(stripe.checkout.Session,'create') as create:
+        with patch.dict(os.environ,{'PAYMENTS_ENABLED':'true','STRIPE_MODE':'live','STRIPE_LIVE_PAYMENTS_ENABLED':'false','STRIPE_SECRET_KEY':'sk_live_hidden'}),patch('billing.create_checkout') as create:
             self.assertEqual(self.client.post(f'/contractor/offers/{payment.offer_id}/checkout',data={'_csrf':'csrf-test'}).status_code,503)
             create.assert_not_called()
             self.admin();response=self.client.get('/admin/integrations')
@@ -402,32 +408,29 @@ class MinnesotaFlows(unittest.TestCase):
             self.assertEqual(self.stripe_post(event_payment,event_id='evt_early').status_code,204)
             return {'id':'cs_early','url':'https://checkout.stripe.com/test'}
         config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
-        with patch.dict(os.environ,config),patch.object(stripe.checkout.Session,'create',side_effect=create_session):
+        with patch.dict(os.environ,config),patch('billing.create_checkout',side_effect=create_session):
             response=self.client.post(f'/contractor/offers/{payment.offer_id}/checkout',data={'_csrf':'csrf-test'})
             self.assertEqual(response.status_code,303)
         db.session.refresh(payment);self.assertEqual(payment.status,'paid');self.assertEqual(payment.session_id,'cs_early')
 
-    def test_service_state_price_selection_is_server_owned(self):
-        import stripe
-        from app import Payment,LeadPrice
+    def test_daily_market_quote_uses_evidence_not_assigned_prices(self):
+        from app import Payment,LeadPrice,MarketBenchmark
         old=self.add_invoice();offer_id=old.offer_id;db.session.delete(old);db.session.commit()
-        db.session.add_all([LeadPrice(state_code='MN',service_name='Mold Remediation',mode='test',stripe_price_id='price_mn_mold'),LeadPrice(state_code='TX',service_name='Mold Remediation',mode='test',stripe_price_id='price_tx_mold')]);db.session.commit()
-        self.contractor_session()
+        db.session.add(LeadPrice(state_code='MN',service_name='Mold Remediation',mode='test',stripe_price_id='price_ignored'))
+        db.session.commit();self.contractor_session()
         config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
-        price={'active':True,'currency':'usd','type':'one_time','unit_amount':3300}
-        with patch.dict(os.environ,config),patch.object(stripe.Price,'retrieve',return_value=price) as lookup,patch.object(stripe.checkout.Session,'create',return_value={'id':'cs_variable','url':'https://checkout.stripe.com/test'}):
-            response=self.client.post(f'/contractor/offers/{offer_id}/checkout',data={'_csrf':'csrf-test','state':'TX','amount':'1'})
-            self.assertEqual(response.status_code,303)
-            self.assertEqual(lookup.call_args.args[0],'price_mn_mold')
-        stored=Payment.query.one();self.assertEqual(stored.amount_cents,3300);self.assertEqual(stored.price_id,'price_mn_mold')
-    def test_admin_price_mapping_requires_csrf_and_preserves_mode(self):
+        with patch.dict(os.environ,config),patch('market_pricing.quote_from_benchmark',return_value=(2500,datetime.now(timezone.utc)+timedelta(hours=1))):
+            response=self.client.post(f'/contractor/offers/{offer_id}/quote',data={'_csrf':'csrf-test','state':'TX','amount':'1'})
+            self.assertEqual(response.status_code,200)
+            self.assertIn('15%',response.text)
+        row=Payment.query.one();self.assertEqual(row.amount_cents,2500);self.assertIsNotNone(row.market_benchmark_id)
+        self.assertNotEqual(row.price_id,'price_ignored')
+    def test_assigned_price_mapping_is_disabled(self):
         from app import LeadPrice
-        self.assertEqual(self.client.get('/admin/pricing').status_code,403)
         self.admin()
-        self.assertEqual(self.client.post('/admin/pricing',data={'state':'MN','service':'Mold Remediation','stripe_price_id':'price_mn'}).status_code,400)
-        with patch.dict(os.environ,{'STRIPE_MODE':'test'}):
-            self.assertEqual(self.client.post('/admin/pricing',data={'_csrf':'csrf-test','state':'MN','service':'Mold Remediation','stripe_price_id':'price_mn'}).status_code,302)
-        row=LeadPrice.query.one();self.assertEqual(row.mode,'test');self.assertEqual(row.stripe_price_id,'price_mn')
+        response=self.client.post('/admin/pricing',data={'_csrf':'csrf-test','state':'MN','service':'Mold Remediation','stripe_price_id':'price_mn'})
+        self.assertEqual(response.status_code,409);self.assertEqual(LeadPrice.query.count(),0)
+        self.assertIn('Daily market pricing',self.client.get('/admin/pricing').text)
     def test_expansion_state_cannot_enter_minnesota_intake(self):
         response=self.client.post('/api/leads',json={'name':'Homeowner','phone':'6125550100','zip_code':'55401','service_needed':'Mold Remediation','state':'TX'})
         self.assertEqual(response.status_code,400);self.assertEqual(Lead.query.count(),0)
@@ -439,3 +442,41 @@ class MinnesotaFlows(unittest.TestCase):
         with patch.dict(os.environ,{'EMAIL_SENDING_ENABLED':'true','RESEND_FROM_EMAIL':''}),patch('communications.resend_email') as send:
             self.assertEqual(deliver_pending()['disabled'],1);send.assert_not_called()
         self.assertEqual(Delivery.query.one().status,'pending')
+
+    def test_market_formula_is_15_percent_below_both_and_rounds_down(self):
+        from market_pricing import quote_from_benchmark
+        from types import SimpleNamespace
+        now=datetime(2026,11,1,18,tzinfo=timezone.utc)
+        row=SimpleNamespace(observed_at=now,angi_cents=10001,thumbtack_cents=9001,angi_reference='source-a',thumbtack_reference='source-b',comparison_basis='comparable_contractor_lead_fee')
+        amount,expires=quote_from_benchmark(row,now)
+        self.assertEqual(amount,7650);self.assertLessEqual(amount*100,9001*85)
+        row.observed_at=now-timedelta(days=1)
+        from werkzeug.exceptions import ServiceUnavailable
+        with self.assertRaises(ServiceUnavailable):quote_from_benchmark(row,now)
+    def test_market_data_missing_blocks_quote_without_fallback(self):
+        from app import Payment,MarketBenchmark
+        old=self.add_invoice();offer_id=old.offer_id;db.session.delete(old);db.session.commit()
+        evidence=MarketBenchmark.query.one();evidence.observed_at=datetime.now(timezone.utc)-timedelta(days=1);db.session.commit()
+        self.contractor_session()
+        config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
+        with patch.dict(os.environ,config):
+            self.assertEqual(self.client.post(f'/contractor/offers/{offer_id}/quote',data={'_csrf':'csrf-test'}).status_code,503)
+        self.assertEqual(Payment.query.count(),0)
+    def test_expired_quote_cannot_start_checkout(self):
+        payment=self.add_invoice();payment.quote_expires_at=datetime.now(timezone.utc)-timedelta(seconds=1);db.session.commit();self.contractor_session()
+        config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
+        with patch.dict(os.environ,config),patch('billing.create_checkout') as create:
+            self.assertEqual(self.client.post(f'/contractor/offers/{payment.offer_id}/checkout',data={'_csrf':'csrf-test'}).status_code,409);create.assert_not_called()
+    def test_async_payment_confirms_only_after_paid_event(self):
+        from app import Delivery
+        payment=self.add_invoice()
+        self.assertEqual(self.stripe_post(payment,payment_status='unpaid').status_code,204)
+        db.session.refresh(payment);self.assertEqual(payment.status,'awaiting_payment');self.assertEqual(Delivery.query.count(),0)
+        self.assertEqual(self.stripe_post(payment,event_id='evt_async',kind='checkout.session.async_payment_succeeded').status_code,204)
+        db.session.refresh(payment);self.assertEqual(payment.status,'paid');self.assertEqual(Delivery.query.count(),1)
+    def test_unconfigured_daily_collector_cannot_invent_observations(self):
+        from market_pricing import refresh_benchmarks
+        from app import MarketBenchmark
+        with patch.dict(app.config,{'MARKET_BENCHMARK_COLLECTOR':None}):
+            with self.assertRaises(RuntimeError):refresh_benchmarks()
+        self.assertEqual(MarketBenchmark.query.count(),0)
