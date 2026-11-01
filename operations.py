@@ -1,7 +1,6 @@
 """Authenticated contractor coverage settings and administrative lead controls."""
 from functools import wraps
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import update
 from national import administrator
 from contractor_onboarding import require_csrf
 from contractor_session_security import contractor_session_valid
@@ -64,36 +63,26 @@ def lead_review(lead_id):
         candidates = [contractor for contractor in Contractor.query.filter_by(active=True, verified=True, is_test=False).all()
                       if contractor_matches(contractor, lead, service_map.get(contractor.id, []))]
     offers = db.session.query(LeadOffer, Contractor).join(Contractor, Contractor.id == LeadOffer.contractor_id).filter(LeadOffer.lead_id == lead_id).order_by(LeadOffer.id.desc()).all()
-    from app import ConsumerRequestUpdate, Delivery
+    from app import ConsumerRequestUpdate, Delivery, LeadStatusEvent
     consumer_updates = db.session.query(ConsumerRequestUpdate, Delivery).join(
         Delivery, Delivery.id == ConsumerRequestUpdate.delivery_id).filter(
         ConsumerRequestUpdate.lead_id == lead_id).order_by(ConsumerRequestUpdate.id.desc()).limit(20).all()
-    return render_template('lead_review.html', lead=lead, candidates=candidates, offers=offers, consumer_updates=consumer_updates)
+    status_events = LeadStatusEvent.query.filter_by(lead_id=lead_id).order_by(LeadStatusEvent.id.desc()).limit(20).all()
+    return render_template('lead_review.html', lead=lead, candidates=candidates, offers=offers,
+        consumer_updates=consumer_updates, status_events=status_events)
 
 
 @operations.post('/admin/leads/<int:lead_id>/status')
 @administrator
 def lead_status(lead_id):
-    from app import db, Lead, LeadOffer
+    from app import db
+    from lead_lifecycle import end_matching
     require_csrf()
     target = request.form.get('status')
     if target not in ('Cancelled', 'Closed'):
         abort(400, 'Choose Cancelled or Closed.')
     try:
-        if db.session.get_bind().dialect.name == 'postgresql':
-            from sequential_matching_lock import lock_lead_for_matching
-            lock_lead_for_matching(db.session, lead_id)
-        lead = db.session.query(Lead).filter_by(id=lead_id).with_for_update().first()
-        if lead is None:
-            abort(404)
-        if lead.status != 'New':
-            abort(409, 'Only an open request can be closed or cancelled.')
-        changed = db.session.execute(update(Lead).where(Lead.id == lead_id, Lead.status == 'New').values(status=target))
-        if changed.rowcount != 1:
-            abort(409, 'The request was changed by another administrator. Refresh and try again.')
-        db.session.execute(update(LeadOffer).where(LeadOffer.lead_id == lead_id, LeadOffer.status == 'pending').values(status='cancelled'))
-        from consumer_requests import queue_request_update
-        queue_request_update(lead, target.lower())
+        end_matching(lead_id,target,actor='administrator')
         db.session.commit()
     except Exception:
         db.session.rollback()

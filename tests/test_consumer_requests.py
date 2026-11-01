@@ -183,5 +183,134 @@ class ConsumerRequestTests(unittest.TestCase):
         self.assertEqual(self.lead.status,'New');self.assertEqual(offer.status,'pending')
         self.assertEqual(ConsumerRequestUpdate.query.count(),0);self.assertEqual(Delivery.query.count(),0)
 
+    def stop_data(self, reference=None):
+        with self.client.session_transaction() as state:state['_csrf']='consumer-csrf'
+        return {'_csrf':'consumer-csrf','request_reference':str(self.lead.id if reference is None else reference),'confirm_stop':'yes'}
+
+    def test_stop_confirmation_is_read_only_and_requires_ownership(self):
+        self.assertEqual(self.client.get('/request-status/stop-matching').status_code,303)
+        self.owner()
+        page=self.client.get('/request-status/stop-matching')
+        self.assertEqual(page.status_code,200);self.assertIn('Keep matching',page.text)
+        self.assertIn('name="confirm_stop"',page.text)
+        self.assertIn('no-store',page.headers['Cache-Control'])
+        db.session.refresh(self.lead);self.assertEqual(self.lead.status,'New')
+        self.assertEqual(ConsumerRequestUpdate.query.count(),0)
+
+    def test_stop_requires_csrf_and_explicit_confirmation(self):
+        self.owner();data=self.stop_data()
+        self.assertEqual(self.client.post('/request-status/stop-matching',data={}).status_code,400)
+        data.pop('confirm_stop')
+        response=self.client.post('/request-status/stop-matching',data=data)
+        self.assertEqual(response.status_code,400)
+        self.assertIn('Confirm that you want to stop matching',response.text)
+        self.assertIn('no-store',response.headers['Cache-Control'])
+        db.session.refresh(self.lead);self.assertEqual(self.lead.status,'New')
+
+    def test_stale_confirmation_cannot_cancel_a_newer_or_other_request(self):
+        other=Lead(homeowner_name='Other',phone='6125550122',zip_code='55101',service_needed='Mold Remediation')
+        db.session.add(other);db.session.commit();self.owner()
+        data=self.stop_data(reference=other.id)
+        self.assertEqual(self.client.post('/request-status/stop-matching',data=data).status_code,409)
+        data=self.stop_data()  # Old form stays bound to the old request.
+        self.owner(lead_id=other.id)
+        self.assertEqual(self.client.post('/request-status/stop-matching',data=data).status_code,409)
+        db.session.refresh(self.lead);db.session.refresh(other)
+        self.assertEqual((self.lead.status,other.status),('New','New'))
+
+    def test_stop_retains_accepted_payment_history_and_is_idempotent(self):
+        from app import LeadStatusEvent,Payment
+        accepted=self.offer();pending=self.offer('pending')
+        payment=Payment(offer_id=accepted.id,contractor_id=self.contractor.id,amount_cents=2500,
+            currency='usd',price_id='historical-synthetic',status='paid')
+        db.session.add(payment);db.session.commit();self.owner()
+        data=self.stop_data();data.update(actor='administrator',lead_id='999')
+        for _ in range(2):
+            response=self.client.post('/request-status/stop-matching',data=data)
+            self.assertEqual(response.status_code,303)
+        db.session.refresh(accepted);db.session.refresh(pending);db.session.refresh(payment)
+        self.assertEqual((accepted.status,pending.status,payment.status),('accepted','cancelled','paid'))
+        self.assertEqual(LeadStatusEvent.query.one().actor,'consumer')
+        self.assertEqual(ConsumerRequestUpdate.query.count(),1);self.assertEqual(Delivery.query.count(),1)
+        page=self.client.get('/request-status')
+        self.assertIn('Your request is cancelled',page.text)
+        self.assertNotIn('href="/request-status/stop-matching"',page.text)
+
+    def test_expired_owner_and_already_closed_request_cannot_be_cancelled(self):
+        self.owner(issued=datetime.now(timezone.utc)-timedelta(days=8));data=self.stop_data()
+        self.assertEqual(self.client.post('/request-status/stop-matching',data=data).status_code,303)
+        db.session.refresh(self.lead);self.assertEqual(self.lead.status,'New')
+        self.owner();self.lead.status='Closed';db.session.commit()
+        self.assertEqual(self.client.post('/request-status/stop-matching',data=data).status_code,409)
+        db.session.refresh(self.lead);self.assertEqual(self.lead.status,'Closed')
+
+    def test_cancelled_request_blocks_new_quotes_and_checkout(self):
+        from app import Payment
+        offer=self.offer();self.owner()
+        self.assertEqual(self.client.post('/request-status/stop-matching',data=self.stop_data()).status_code,303)
+        self.contractor_session()
+        config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example',
+                'PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
+        with patch.dict(os.environ,config),patch('billing.create_checkout') as create,patch('billing.retrieve_checkout') as retrieve:
+            for action in ('quote','checkout'):
+                self.assertEqual(self.client.post(f'/contractor/offers/{offer.id}/{action}',data={'_csrf':'csrf-test'}).status_code,409)
+            self.assertIn('No accepted offers',self.client.get('/contractor/billing').text)
+            create.assert_not_called();retrieve.assert_not_called()
+        self.assertEqual(Payment.query.count(),0)
+
+    def test_consumer_stop_failure_rolls_back_audit_and_pending_offers(self):
+        from app import LeadStatusEvent
+        pending=self.offer('pending');self.owner();data=self.stop_data()
+        with patch('consumer_requests.queue_request_update',side_effect=RuntimeError('synthetic failure')),self.assertLogs('app',level='ERROR'):
+            response=self.client.post('/request-status/stop-matching',data=data)
+        self.assertEqual(response.status_code,500)
+        db.session.refresh(self.lead);db.session.refresh(pending)
+        self.assertEqual((self.lead.status,pending.status),('New','pending'))
+        self.assertEqual(LeadStatusEvent.query.count(),0);self.assertEqual(Delivery.query.count(),0)
+
+    def test_administrator_status_changes_record_the_authenticated_actor(self):
+        from app import LeadStatusEvent
+        self.admin()
+        self.assertEqual(self.client.post(f'/admin/leads/{self.lead.id}/status',data={
+            '_csrf':'csrf-test','status':'Closed','actor':'consumer'}).status_code,302)
+        event=LeadStatusEvent.query.one()
+        self.assertEqual((event.previous_status,event.new_status,event.actor),('New','Closed','administrator'))
+        self.assertIn('Request status history',self.client.get(f'/admin/leads/{self.lead.id}').text)
+
+    def test_concurrent_consumer_stop_creates_one_audit_and_one_email(self):
+        import tempfile
+        from concurrent.futures import ThreadPoolExecutor
+        from flask import Flask
+        from app import LeadStatusEvent
+        from consumer_requests import consumer_requests
+        with tempfile.TemporaryDirectory() as directory:
+            isolated=Flask('consumer-stop-concurrency')
+            isolated.config.update(SECRET_KEY='synthetic-test-secret',
+                SQLALCHEMY_DATABASE_URI='sqlite:///'+directory.replace('\\','/')+'/stop.db',
+                SQLALCHEMY_ENGINE_OPTIONS={'connect_args':{'timeout':30}})
+            db.init_app(isolated);isolated.register_blueprint(consumer_requests)
+            try:
+                with isolated.app_context():
+                    db.create_all()
+                    lead=Lead(homeowner_name='Synthetic',phone='6125550100',email='consumer@example.com',
+                        zip_code='55401',service_needed='Mold Remediation',status='New')
+                    db.session.add(lead);db.session.commit();lead_id=lead.id
+                def stop(_):
+                    with isolated.test_client() as client:
+                        with client.session_transaction() as state:
+                            state.update(last_lead_reference=lead_id,last_lead_status_at=datetime.now(timezone.utc).isoformat(),_csrf='parallel-csrf')
+                        return client.post('/request-status/stop-matching',data={
+                            '_csrf':'parallel-csrf','request_reference':str(lead_id),'confirm_stop':'yes'}).status_code
+                with ThreadPoolExecutor(max_workers=4) as workers:
+                    self.assertEqual(list(workers.map(stop,range(8))),[303]*8)
+                with isolated.app_context():
+                    self.assertEqual(Lead.query.one().status,'Cancelled')
+                    self.assertEqual(LeadStatusEvent.query.count(),1)
+                    self.assertEqual(ConsumerRequestUpdate.query.count(),1)
+                    self.assertEqual(Delivery.query.count(),1)
+            finally:
+                with isolated.app_context():
+                    db.session.remove();db.engine.dispose()
+
 
 if __name__=='__main__':unittest.main()

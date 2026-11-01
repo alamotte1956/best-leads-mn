@@ -1,7 +1,7 @@
 """Private same-browser homeowner tracking and transactional status notices."""
 import re
 from datetime import datetime, timedelta, timezone
-from flask import Blueprint, render_template, session
+from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import select, update
 
 consumer_requests = Blueprint('consumer_requests', __name__)
@@ -80,6 +80,42 @@ def status():
     phone_digits = re.sub(r'[^0-9]','',contractor.phone or '') if contractor else ''
     return render_template('request_status.html',lead=lead,state=state,
         status_copy=STATUS_COPY.get(state),contractor=contractor,phone_digits=phone_digits), 200, PRIVATE_HEADERS
+
+
+@consumer_requests.after_request
+def protect_private_response(response):
+    response.headers.update(PRIVATE_HEADERS)
+    return response
+
+
+@consumer_requests.route('/request-status/stop-matching',methods=['GET','POST'])
+def stop_matching():
+    from app import db
+    from contractor_onboarding import require_csrf
+    from lead_lifecycle import end_matching
+    lead = owned_request()
+    if not lead:
+        return redirect(url_for('consumer_requests.status'),code=303)
+    if request.method == 'GET':
+        if lead.status != 'New':
+            return redirect(url_for('consumer_requests.status'),code=303)
+        return render_template('stop_matching.html',lead=lead,error=None)
+    require_csrf()
+    # Bind the confirmation to its original request; a newer submission in another
+    # tab must not make this old form cancel the browser's new latest request.
+    if request.form.get('request_reference') != str(lead.id):
+        abort(409,'Your current request changed. Open its status page before continuing.')
+    if request.form.get('confirm_stop') != 'yes':
+        return render_template('stop_matching.html',lead=lead,
+            error='Confirm that you want to stop matching for this request.'),400
+    try:
+        end_matching(lead.id,'Cancelled',actor='consumer',allow_same=True)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    flash('Matching has stopped for this request.','success')
+    return redirect(url_for('consumer_requests.status'),code=303)
 
 
 def queue_request_update(lead, state, offer_id=None):

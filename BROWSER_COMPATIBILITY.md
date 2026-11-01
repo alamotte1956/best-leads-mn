@@ -35,3 +35,7 @@ The grid minimum-size fix follows [MDN's min-width reference](https://developer.
 ## Consumer tracking update
 
 The new status page, receipt link, homepage navigation and administrator consumer-email history passed 27 Chromium state/viewport checks at 320, 768 and 1440 pixels, with no horizontal overflow. Contact actions appeared only for an eligible accepted match. Tracking is server rendered and requires no JavaScript. Other browser engines and physical devices remain unverified.
+
+## Consumer stop-matching control
+
+The confirmation page, cancelled status and administrator history passed nine additional Chromium checks at 320/768/1440 without horizontal overflow. Browser execution verified Keep matching leaves the request open and a confirmed submission changes it to Cancelled. The control uses server-rendered forms, native confirmation validation, CSRF and POST/redirect/GET; no JavaScript is required. Other engines and physical devices remain unverified.

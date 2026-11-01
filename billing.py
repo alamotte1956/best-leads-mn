@@ -52,7 +52,7 @@ def retrieve_checkout(session_id,*,api_key):
 
 
 def billable_offer(contractor,offer_id):
-    from app import LeadOffer
+    from app import db, Lead, LeadOffer
     from market_pricing import aware
     activation=payment_activation()
     if activation is None:
@@ -60,6 +60,9 @@ def billable_offer(contractor,offer_id):
     offer=LeadOffer.query.filter_by(id=offer_id,contractor_id=contractor.id,status='accepted').first()
     if not offer:
         abort(404)
+    lead = db.session.get(Lead,offer.lead_id)
+    if not lead or lead.status != 'New':
+        abort(409,'This request is no longer open for new checkout. Existing payment history is retained.')
     if not offer.accepted_at or aware(offer.accepted_at)<activation:
         abort(409,'This historical offer is not billable under the activation policy.')
     return offer
@@ -68,10 +71,12 @@ def billable_offer(contractor,offer_id):
 @billing.get('/contractor/billing')
 @contractor_required
 def overview(contractor):
-    from app import Payment,LeadOffer
+    from app import Payment,LeadOffer,Lead
     from market_pricing import aware
     payments=Payment.query.filter_by(contractor_id=contractor.id).order_by(Payment.id.desc()).limit(100).all()
-    offers=LeadOffer.query.filter_by(contractor_id=contractor.id,status='accepted').order_by(LeadOffer.id.desc()).limit(100).all()
+    offers=LeadOffer.query.join(Lead,Lead.id==LeadOffer.lead_id).filter(
+        LeadOffer.contractor_id==contractor.id,LeadOffer.status=='accepted',Lead.status=='New'
+    ).order_by(LeadOffer.id.desc()).limit(100).all()
     activation=payment_activation()
     paid_offers={row.offer_id for row in payments if row.status in ('paid','refunded')}
     offers=[row for row in offers if activation and row.accepted_at and aware(row.accepted_at)>=activation and row.id not in paid_offers]

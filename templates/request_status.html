@@ -11,6 +11,7 @@
   {% include 'partials/brand_header.html' %}
   <main class="page-wrap narrow" id="main">
     <a href="/">← Home</a>
+    {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<p class="notice" role="status">{{ message }}</p>{% endfor %}{% endwith %}
     {% if lead %}
       <p class="eyebrow" style="margin-top:24px">YOUR REQUEST · #{{ lead.id }}</p>
       <h1>{{ status_copy[0] }}</h1>
@@ -31,6 +32,7 @@
       </section>
       {% endif %}
       <p style="margin-top:24px"><a class="button secondary" href="{{ url_for('consumer_requests.status') }}">Refresh status</a></p>
+      {% if lead.status == 'New' %}<p><a href="{{ url_for('consumer_requests.stop_matching') }}">No longer need matching? Stop this request</a></p>{% endif %}
       <p class="small">Status reflects the platform record when this page loads. It does not confirm an appointment, project completion or a payment.</p>
     {% else %}
       <h1 style="margin-top:24px">Your request stays private.</h1>

@@ -57,6 +57,8 @@ from contractor_account_notifications import define_account_events
 ContractorAccountEvent = define_account_events(db)
 from consumer_requests import define_consumer_updates
 ConsumerRequestUpdate = define_consumer_updates(db)
+from lead_lifecycle import define_lead_status_events
+LeadStatusEvent = define_lead_status_events(db)
 
 logging.basicConfig(level=logging.INFO)
 
