@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ page.title }} in {{ market[1] }} | Restoration Contractors USA</title>
+<meta name="description" content="Explore {{ page.title | lower }} in {{ market[1] }}. Learn what to discuss with a contractor and how to submit a property damage request.">
+{% if preview %}<meta name="robots" content="noindex,nofollow">{% else %}
+<link rel="canonical" href="{{ canonical }}">
+<meta property="og:type" content="website"><meta property="og:title" content="{{ page.title }} in {{ market[1] }}">
+<meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="https://RestorationContractorsUSA.com{{ photo }}">
+<script type="application/ld+json">{{ {'@context':'https://schema.org','@type':'WebPage','name':page.title ~ ' in ' ~ market[1], 'url':canonical, 'inLanguage':'en-US'} | tojson }}</script>
+{% endif %}
+<link rel="stylesheet" href="{{ url_for('static',filename='css/national.css') }}"><link rel="stylesheet" href="/static/css/compatibility.css">
+<link rel="stylesheet" href="{{ url_for('static',filename='css/platform-advantages.css') }}">
+</head><body><a class="skip-link" href="#main">Skip to content</a>
+<header>{% include 'partials/usa_brand_logo.html' %}<nav aria-label="Main navigation"><a href="/usa">USA Home</a><a href="{{ url_for('national.preview' if preview else 'national.landing',state=state) }}">{{ market[1] }}</a><a href="/contractor/login">Contractor login</a></nav></header>
+<main id="main">
+{% if preview %}<aside class="preview-banner"><strong>Private launch preview</strong> · {{ 'Minnesota is open for requests.' if is_open else 'This state is disabled. Requests and matching are closed.' }}</aside>{% endif %}
+<section class="national-hero"><div><p class="eyebrow">{{ market[1] }} · PROPERTY RESTORATION</p><h1>{{ page.title }} in {{ market[1] }}</h1><p class="intro">{{ page.description }}</p><p>{{ content.introduction }}</p>
+{% if is_open %}<a class="button" href="{{ request_url }}">Request {{ page.title | lower }} assistance →</a><p class="small">Submit the property ZIP code and damage details using the Minnesota request form. A request does not guarantee availability or response time.</p>
+{% else %}<p class="status-pill">Coming soon · Requests are closed in {{ market[1] }}</p>{% endif %}
+</div><figure><img src="{{ photo }}" alt="Illustrative {{ page.title | lower }} scene" width="1280" height="853" fetchpriority="high"><figcaption>AI-generated illustrative image.</figcaption></figure></section>
+<section><h2>Work to discuss with a contractor</h2><div class="grid">{% for item in page.scope %}<article><h3>{{ item }}</h3><p>The appropriate scope depends on the property's condition and a contractor's assessment.</p></article>{% endfor %}</div></section>
+<section><h2>Initial markets in {{ market[1] }}</h2><p>{{ market[2] | join(' · ') }}</p><p>Coverage depends on launch status, exact property ZIP code, the service needed and approved contractor coverage. City names do not guarantee availability.</p></section>
+<section><h2>Other restoration services</h2><div class="city-links">{% for other in services %}{% if other != service %}<a href="{{ url_for('national.preview_service' if preview else 'national.state_service',state=state,service=other) }}">{{ pages[other].title }}</a>{% endif %}{% endfor %}</div></section>
+<aside class="notice"><strong>Immediate danger?</strong><p>Contact emergency services. This website is not an emergency dispatch service.</p></aside>
+{% include 'partials/platform_advantages.html' %}</main><footer><p>Restoration Contractors USA · Your Trusted Professionals</p><nav aria-label="Footer"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="https://RestorationContractorsMN.com">Minnesota website</a></nav></footer></body></html>
