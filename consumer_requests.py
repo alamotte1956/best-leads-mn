@@ -33,12 +33,13 @@ def define_consumer_updates(db):
 
 
 def remember_request(lead_id, now=None):
+    session.pop('request_access_binding',None)
     session['last_lead_reference'] = lead_id
     session['last_lead_status_at'] = (now or datetime.now(timezone.utc)).isoformat()
 
 
 def owned_request(now=None):
-    """No URL, email, phone or user-supplied lead ID grants access."""
+    """No bare email, phone or user-supplied lead ID grants access."""
     from app import db, Lead
     lead_id = session.get('last_lead_reference')
     if type(lead_id) is not int or not 0 < lead_id <= 2**63-1:
@@ -52,7 +53,13 @@ def owned_request(now=None):
             return None
     except (ValueError, TypeError):
         return None
-    return db.session.get(Lead, lead_id)
+    lead = db.session.get(Lead, lead_id)
+    if session.get('request_access_binding'):
+        from account_recovery import subject_binding
+        import hmac
+        if not lead or not hmac.compare_digest(session['request_access_binding'],subject_binding('consumer',lead)):
+            return None
+    return lead
 
 
 def request_status(lead):

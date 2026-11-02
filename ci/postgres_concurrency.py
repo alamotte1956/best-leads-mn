@@ -222,6 +222,25 @@ class PostgresConcurrencyTests(unittest.TestCase):
             self.assertEqual(tuple(preserved),(2500,'cs_legacy_synthetic','open','test',1))
             self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM checkout_quote_history')).scalar_one(),0)
 
+
+    def test_consumer_recovery_link_is_consumed_exactly_once_under_concurrency(self):
+        import re
+        from app import Lead, Delivery, AccessRecoveryToken
+        lead=db.session.get(Lead,self.lead_id);lead.email='recovery@example.com';db.session.commit()
+        client=app.test_client()
+        with client.session_transaction() as state: state['_csrf']='isolated-recovery-csrf'
+        response=client.post('/request-access',data={'_csrf':'isolated-recovery-csrf','email':'recovery@example.com'})
+        self.assertEqual(response.status_code,303)
+        notice=Delivery.query.filter_by(recipient='recovery@example.com').one()
+        path=re.search(r'https://www\.restorationcontractorsmn\.com([^\s]+)',notice.body).group(1)
+        def consume(_):
+            with app.test_client() as separate:
+                with separate.session_transaction() as state: state['_csrf']='isolated-consume-csrf'
+                return separate.post(path,data={'_csrf':'isolated-consume-csrf'}).status_code==303
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            self.assertEqual(sum(pool.map(consume,range(8))),1)
+        db.session.expire_all();self.assertIsNotNone(AccessRecoveryToken.query.one().used_at)
+
     def test_all_additive_migrations_can_run_twice_in_isolated_schema(self):
         db.session.remove()
         with db.engine.connect().execution_options(isolation_level='AUTOCOMMIT') as connection:

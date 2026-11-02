@@ -2,7 +2,7 @@ const {test,expect}=require('@playwright/test');
 const STATE_SERVICES=['water-damage','fire-smoke-damage','mold-remediation','storm-hail-damage','roof-repair'];
 const PUBLIC=['/','/signup','/contractor/login','/admin/login','/privacy','/terms','/sms-policy',
   ...STATE_SERVICES.map(s=>'/usa/minnesota/services/'+s),
-  '/usa','/usa/minnesota','/usa/minnesota/twin-cities','/request-status','/request-received',
+  '/usa','/usa/minnesota','/usa/minnesota/twin-cities','/request-status','/request-received','/request-access','/contractor/forgot-password',
   ...['water-damage','storm-hail-damage','roof-repair','basement-flooding','mold-remediation',
     'fire-smoke-damage','sewer-backup','frozen-pipes','siding-repair','emergency-tarping'].map(s=>'/services/'+s)];
 const ADMIN=['/admin/finance','/admin','/admin/national','/admin/owner-command-center','/admin/leads/1',

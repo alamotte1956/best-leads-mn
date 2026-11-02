@@ -121,6 +121,11 @@ def deliver_pending(limit=20):
         if not all(os.environ.get(name) for name in required):
             result['disabled'] += 1
             continue
+        from account_recovery import recovery_notice_current
+        if not recovery_notice_current(row):
+            db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='pending').values(status='cancelled'))
+            db.session.commit();result['cancelled'] += 1
+            continue
         account_event = ContractorAccountEvent.query.filter_by(delivery_id=row.id).first()
         if account_event and not account_notice_current(row, account_event):
             db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='pending').values(status='cancelled'))
@@ -194,6 +199,10 @@ def deliver_pending(limit=20):
             if row.channel == 'email' and not email_recipient_allowed(row.recipient):
                 db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='pending'))
                 db.session.commit();result['disabled'] += 1
+                continue
+            if not recovery_notice_current(row):
+                db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='cancelled'))
+                db.session.commit();result['cancelled'] += 1
                 continue
             provider_id = resend_email(row) if row.channel == 'email' else twilio_sms(row)
             db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(provider_id=provider_id,status='sent'))

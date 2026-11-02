@@ -19,7 +19,7 @@
       <section class="form-card" aria-labelledby="request-details-heading">
         <h2 id="request-details-heading">Your request at a glance</h2>
         <dl class="request-summary"><dt>Contractor choice</dt><dd>{{ match_description }}</dd><dt>Service</dt><dd>{{ lead.service_needed }}</dd><dt>Property ZIP code</dt><dd>{{ lead.zip_code }}</dd></dl>
-        <p class="small">This page shows your most recent request in this browser for seven days after submission. Your phone number, email and project description are not displayed here.</p>
+        <p class="small">This page shows your most recent request in this browser for seven days after submission or access recovery. Your phone number, email and project description are not displayed here.</p>
       </section>
       {% for match in matches %}
       {% set contractor=match.contractor %}{% set phone_digits=match.phone_digits %}{% set contractor_mailto=match.contractor_mailto %}
@@ -38,9 +38,9 @@
     {% else %}
       <h1 style="margin-top:24px">Your request stays private.</h1>
       <p class="lead">No current request is available in this browser.</p>
-      <p>If you already submitted a request, use the same browser and device. Status access lasts seven days and is lost when cookies are cleared. Other requests remain saved with our team.</p>
+      <p>If you already submitted a request, use the same browser and device. Status access lasts seven days in this browser. If you entered an email address, you can request a private access link below. Other requests remain saved with our team.</p>
       <div class="notice"><strong>No need to submit a duplicate.</strong><p>A request number or email address alone cannot open private request details.</p></div>
-      <a class="button secondary" href="/">Back to home</a>
+      <p><a class="button primary" href="/request-access">Email me a private access link</a></p><a class="button secondary" href="/">Back to home</a>
     {% endif %}
   </main>
 </body>
