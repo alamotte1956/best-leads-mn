@@ -1,0 +1,76 @@
+name: Platform checks
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: 'sqlite:///:memory:'
+      EMAIL_SENDING_ENABLED: 'false'
+      SMS_SENDING_ENABLED: 'false'
+      PAYMENTS_ENABLED: 'false'
+      ENABLE_LIVE_MATCHING: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - run: node tests/browser-fallbacks.cjs
+  postgres-concurrency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-ci-only
+          POSTGRES_DB: test_rcusa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test_rcusa"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      POSTGRES_TEST_URL: postgresql+psycopg2://postgres:isolated-ci-only@127.0.0.1:5432/test_rcusa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - run: python ci/postgres_concurrency.py
+  browser-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      RCUSA_BROWSER_FIXTURE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt
+      - run: npm ci --prefix ci
+      - run: npx --prefix ci playwright install --with-deps chromium firefox webkit chrome msedge
+      - run: npx --prefix ci playwright test --config ci/playwright.config.cjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: ci/test-results
+          retention-days: 7

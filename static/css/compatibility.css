@@ -1,0 +1,27 @@
+/* Shared browser and small-screen safeguards. Keep zoom and native controls enabled. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+*,*::before,*::after{box-sizing:border-box}
+img,svg,video{max-width:100%}img{height:auto}
+main,section,article,aside,fieldset,form,header,nav,footer,.hero-copy,.hero-aside,.form-card,.metric{min-width:0}
+fieldset{min-inline-size:0}
+p,li,td,th,a,h1,h2,h3,summary,.notice,.error-box{overflow-wrap:break-word;word-wrap:break-word}
+input,select,textarea,button{max-width:100%;font-family:inherit}
+input:not([type=checkbox]):not([type=radio]):not([type=hidden]),select,textarea{font-size:16px;min-width:0}
+button,input[type=submit],.button{min-height:44px}
+button{white-space:normal}
+[hidden]{display:none!important}
+:focus{outline:2px solid #1768a0;outline-offset:3px}
+:focus:not(:focus-visible){outline:none}
+:focus-visible{outline:3px solid #1768a0;outline-offset:3px}
+.overflow-x-auto,.table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.grid{grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
+@media(max-width:600px){
+  .metrics,.three-grid,.service-grid,.field-grid{grid-template-columns:minmax(0,1fr)}
+  .site-header nav,header nav{flex-wrap:wrap}
+  .login-box,.login-card{padding:24px}
+  .form-actions{flex-wrap:wrap}
+  .form-actions .button{flex-basis:100%}
+  .rlp-header-inner>a{min-width:0}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+@media(forced-colors:active){button,.button,input,select,textarea{border:1px solid ButtonText}:focus{outline:3px solid Highlight}}

@@ -5,11 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ page.title }} | Restoration Contractors MN</title>
     <meta name="description" content="{{ page.description }}">
-    <link rel="canonical" href="{{ request.url_root.rstrip('/') }}/services/{{ slug }}">
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/rcmn-logo.png') }}">
+    <link rel="canonical" href="{{ canonical }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Restoration Contractors MN">
+    <meta property="og:title" content="{{ page.headline }}">
+    <meta property="og:description" content="{{ page.description }}">
+    <meta property="og:url" content="{{ canonical }}">
+    <meta property="og:image" content="https://RestorationContractorsMN.com{{ photo }}">
+    <meta property="og:image:alt" content="Illustrative {{ page.title | lower }} scene">
+    <meta name="twitter:card" content="summary_large_image">
+    <script type="application/ld+json">{{ structured_data | tojson }}</script>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/rcmn-logo-tm.png') }}">
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Arial, sans-serif; color: #17283d; background: #f5f8fc; }
+        header nav { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; }
+        header nav a { color: #164c83; }
+        .skip-link { position: absolute; left: 12px; top: -80px; z-index: 10; background: white; padding: 12px; }
+        .skip-link:focus { top: 12px; }
+        li { line-height: 1.7; margin-bottom: 8px; }
+        .photo-credit { position: absolute; right: 12px; bottom: 8px; z-index: 1; color: white; background: #10253e; padding: 4px 8px; font-size: 12px; }
         header { background: #f1f5f9; padding: 12px 24px; border-bottom: 1px solid #e2e8f0; }
         header img { width: 280px; max-width: 100%; height: auto; }
         .hero { position: relative; min-height: 420px; display: flex; align-items: center; background: #142b46; color: white; overflow: hidden; }
@@ -26,7 +41,7 @@
         h2 { font-size: 29px; margin-top: 0; }
         p { line-height: 1.7; }
         label { display: block; font-weight: bold; margin: 14px 0 6px; }
-        input, textarea { width: 100%; padding: 12px; border: 1px solid #b9c5d2; border-radius: 6px; font: inherit; }
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #b9c5d2; border-radius: 6px; font: inherit; }
         textarea { min-height: 105px; resize: vertical; }
         .note { font-size: 13px; color: #526276; }
         .services { padding: 30px 0 60px; }
@@ -39,14 +54,21 @@
             header img { width: 230px; }
         }
     </style>
+<link rel="stylesheet" href="/static/css/compatibility.css">
+<link rel="stylesheet" href="{{ url_for('static',filename='css/platform-advantages.css') }}">
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header>
     {% include 'partials/brand_logo.html' %}
+    <nav aria-label="Main navigation">
+        <a href="/">Home</a><a href="#services">Services</a><a href="/request-status">My Request</a>
+        <a href="{{ url_for('signup') }}">Contractor Registration</a><a href="/contractor/login">Contractor Login</a>
+    </nav>
 </header>
 
 <section class="hero">
-    <img class="hero-photo" src="{{ photo }}" alt="{{ page.title }} service photograph">
+    <figure style="margin:0"><img class="hero-photo" src="{{ photo }}" alt="Illustrative {{ page.title | lower }} scene" width="1280" height="853" fetchpriority="high"><figcaption class="photo-credit">AI-generated illustrative image.</figcaption></figure>
     <div class="hero-shade"></div>
     <div class="hero-content">
         <div class="eyebrow">Twin Cities, Minnesota</div>
@@ -56,11 +78,16 @@
     </div>
 </section>
 
-<main class="container">
+<main class="container" id="main-content">
     <section class="content">
         <div>
             <h2>Find Help for {{ page.title }}</h2>
-            <p>{{ page.description }}</p>
+            <p>{{ page.overview }}</p>
+            <h2>Work to Discuss with Your Contractor</h2>
+            <ul>{% for item in page.scope %}<li>{{ item }}</li>{% endfor %}</ul>
+            <h2>Minnesota and Twin Cities Requests</h2>
+            <p>Submit a request for a Minnesota property in Minneapolis, Saint Paul or surrounding communities such as Bloomington, Brooklyn Park, Maple Grove, Plymouth, Woodbury and Eagan. Coverage depends on your property ZIP code, the service needed and contractor availability.</p>
+            <p>Tell us the property's location even if your mailing address is elsewhere. Requests may require a location review before matching.</p>
             <p>Restoration Contractors MN helps homeowners submit requests for restoration and property repair services in the Twin Cities area.</p>
             <h2>How It Works</h2>
             <p><strong>1.</strong> Tell us what happened and where the property is located.</p>
@@ -71,7 +98,10 @@
 
         <div class="panel" id="request">
             <h2>Request Contractor Assistance</h2>
-            <form action="/api/leads" method="POST">
+            <p>{{ page.request_tip }}</p>
+            <form action="{{ url_for('submit_lead') }}" method="POST">
+                <input type="hidden" name="state" value="MN">
+                {% include 'partials/homeowner_contractor_choice.html' %}
                 <label for="name">Full Name</label>
                 <input id="name" name="name" autocomplete="name" maxlength="100" required>
 
@@ -95,7 +125,7 @@
         </div>
     </section>
 
-    <section class="services">
+    <section class="services" id="services">
         <h2>Other Restoration Services</h2>
         <div class="links">
             {% for other_slug, other_page in all_pages.items() %}
@@ -105,7 +135,7 @@
             {% endfor %}
         </div>
     </section>
-</main>
+{% include 'partials/platform_advantages.html' %}</main>
 
 <footer>
     <p>Restoration Contractors MN | Twin Cities, Minnesota</p>

@@ -20,6 +20,7 @@ th { background: #eef3f8; }
 .expired { color: #b42318; }
 .note { color: #52657a; font-size: 14px; }
 </style>
+<link rel="stylesheet" href="/static/css/compatibility.css">
 </head>
 <body>
 <header>
@@ -27,14 +28,14 @@ th { background: #eef3f8; }
 <h1>Owner's Command Center</h1>
 <p>Restoration Contractors MN ? Operations and Financial Monitoring</p>
 </header>
-<main>
+<main><p><a href="/admin/finance">View profit, expenses and financial reports →</a></p>
 <div class="metrics">
     <div class="metric">Homeowner Leads Today<div class="value">{{ metrics.leads_today }}</div></div>
     <div class="metric">Pending Offers<div class="value">{{ metrics.pending_offers }}</div></div>
     <div class="metric">Accepted Offers<div class="value">{{ metrics.accepted_offers }}</div></div>
     <div class="metric">Expired Offers<div class="value">{{ metrics.expired_offers }}</div></div>
     <div class="metric">Confirmed Payments Today<div class="value">{% if metrics.paid_today_cents is not none %}${{ "%.2f"|format(metrics.paid_today_cents / 100) }}{% else %}Not yet connected{% endif %}</div></div>
-    <div class="metric">Refunds Today<div class="value">{% if metrics.refunds_today_cents is not none %}${{ "%.2f"|format(metrics.refunds_today_cents / 100) }}{% else %}Not yet connected{% endif %}</div></div>
+    <div class="metric">Refunds on Today’s Payments<div class="value">{% if metrics.refunds_today_cents is not none %}${{ "%.2f"|format(metrics.refunds_today_cents / 100) }}{% else %}Not yet connected{% endif %}</div></div>
 </div>
 
 <section>
@@ -79,7 +80,7 @@ Not offered
 </table>
 </section>
 
-<p class="note">Financial totals must come from confirmed payment transactions, not offer acceptance.</p>
+<p class="note">Payment totals include live USD payments confirmed today in America/Chicago. Refunds reflect the current refunded amount on those payments, not refunds issued today. Open the profit report to enter expenses and assess the recorded business result.</p>
 </main>
 <script>
 (function () {

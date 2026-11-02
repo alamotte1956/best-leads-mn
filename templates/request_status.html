@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+  <title>Your request status | Restoration Contractors MN</title>
+  <link rel="stylesheet" href="/static/css/experience.css"><link rel="stylesheet" href="/static/css/compatibility.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  {% include 'partials/brand_header.html' %}
+  <main class="page-wrap narrow" id="main">
+    <a href="/">← Home</a>
+    {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<p class="notice" role="status">{{ message }}</p>{% endfor %}{% endwith %}
+    {% if lead %}
+      <p class="eyebrow" style="margin-top:24px">YOUR REQUEST · #{{ lead.id }}</p>
+      <h1>{{ status_copy[0] }}</h1>
+      <p class="lead">{{ status_copy[1] }}</p>
+      <section class="form-card" aria-labelledby="request-details-heading">
+        <h2 id="request-details-heading">Your request at a glance</h2>
+        <dl class="request-summary"><dt>Contractor choice</dt><dd>{{ match_description }}</dd><dt>Service</dt><dd>{{ lead.service_needed }}</dd><dt>Property ZIP code</dt><dd>{{ lead.zip_code }}</dd></dl>
+        <p class="small">This page shows your most recent request in this browser for seven days after submission. Your phone number, email and project description are not displayed here.</p>
+      </section>
+      {% for match in matches %}
+      {% set contractor=match.contractor %}{% set phone_digits=match.phone_digits %}{% set contractor_mailto=match.contractor_mailto %}
+      <section class="form-card" style="margin-top:24px" aria-labelledby="contractor-heading-{{ loop.index }}">
+        <h2 id="contractor-heading-{{ loop.index }}">{{ contractor.company_name }}</h2>
+        <p>Discuss the work, credentials, estimate and timing directly with this business before hiring.</p>
+        <div class="form-actions">
+          {% if phone_digits %}<a class="button primary" href="tel:{{ phone_digits }}">Call {{ contractor.phone }}</a>{% endif %}
+          {% if contractor_mailto %}<a class="button secondary" href="{{ contractor_mailto }}">Email contractor</a>{% endif %}
+        </div>
+      </section>
+      {% endfor %}
+      <p style="margin-top:24px"><a class="button secondary" href="{{ url_for('consumer_requests.status') }}">Refresh status</a></p>
+      {% if lead.status in ['New','Needs location review'] %}<p><a href="{{ url_for('consumer_requests.stop_matching') }}">No longer need matching? Stop this request</a></p>{% endif %}
+      <p class="small">Status reflects the platform record when this page loads. It does not confirm an appointment, project completion or a payment.</p>
+    {% else %}
+      <h1 style="margin-top:24px">Your request stays private.</h1>
+      <p class="lead">No current request is available in this browser.</p>
+      <p>If you already submitted a request, use the same browser and device. Status access lasts seven days and is lost when cookies are cleared. Other requests remain saved with our team.</p>
+      <div class="notice"><strong>No need to submit a duplicate.</strong><p>A request number or email address alone cannot open private request details.</p></div>
+      <a class="button secondary" href="/">Back to home</a>
+    {% endif %}
+  </main>
+</body>
+</html>

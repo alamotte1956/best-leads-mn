@@ -1,4 +1,5 @@
 from sqlalchemy import text
+from lead_choice import CAPACITY_SQL
 
 
 ACCEPT_OFFER_SQL = text("""
@@ -11,6 +12,8 @@ ACCEPT_OFFER_SQL = text("""
        AND expires_at > clock_timestamp()
        AND offered_at <= clock_timestamp()
        AND accepted_at IS NULL
+       AND EXISTS (SELECT 1 FROM leads WHERE leads.id = lead_offers.lead_id AND leads.status = 'New')
+""" + CAPACITY_SQL + """
     RETURNING id, lead_id, contractor_id, accepted_at
 """)
 
@@ -33,6 +36,18 @@ def accept_contractor_offer(session, offer_id, contractor_id):
 
     if offer_id <= 0 or contractor_id <= 0:
         raise ValueError("IDs must be positive.")
+
+    from app import Contractor, Lead, LeadOffer
+    from national_coverage import market_eligible
+    contractor = session.query(Contractor).filter_by(id=contractor_id).populate_existing().with_for_update().first()
+    offer = session.query(LeadOffer).filter_by(id=offer_id, contractor_id=contractor_id).first()
+    lead = session.get(Lead, offer.lead_id) if offer else None
+    if not contractor or not lead or not market_eligible(contractor, lead):
+        return None
+
+    if session.get_bind().dialect.name == "sqlite":
+        from contractor_offer_sqlite import transition
+        return transition(session, offer_id, contractor_id, "accepted")
 
     # Serialize acceptance with expiration and sequential matching.
     # This lookup does not change the offer.
@@ -67,4 +82,6 @@ def accept_contractor_offer(session, offer_id, contractor_id):
     if result is None:
         return None
 
+    from lead_choice import close_filled_slots
+    close_filled_slots(session,result['lead_id'])
     return dict(result)

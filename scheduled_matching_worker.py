@@ -46,12 +46,7 @@ def process_matching_batch():
                 Lead.submitted_at.isnot(None),
                 Lead.submitted_at >= activation,
                 Lead.status == "New",
-                ~db.session.query(LeadOffer.id)
-                .filter(
-                    LeadOffer.lead_id == Lead.id,
-                    LeadOffer.status == "accepted",
-                )
-                .exists()
+
             )
             .order_by(Lead.id)
             .all()
@@ -64,6 +59,11 @@ def process_matching_batch():
 
         for lead in leads:
             try:
+                from lead_choice import match_limit
+                accepted = db.session.query(LeadOffer.contractor_id).filter(
+                    LeadOffer.lead_id == lead.id, LeadOffer.status == 'accepted').distinct().count()
+                if accepted >= match_limit(lead):
+                    continue
                 contractors = (
                     db.session.query(Contractor)
                     .filter(
@@ -95,6 +95,10 @@ def process_matching_batch():
                     additional_services_by_contractor=service_map,
                 )
 
+                if result["new_offer"] is not None:
+                    from communications import queue_offer
+                    db.session.flush()
+                    queue_offer(result["new_offer"], db.session.get(Contractor, result["new_offer"].contractor_id))
                 db.session.commit()
 
                 processed += 1

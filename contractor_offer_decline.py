@@ -41,6 +41,10 @@ def decline_contractor_offer(session, offer_id, contractor_id):
     ):
         raise ValueError("Invalid contractor ID.")
 
+    if session.get_bind().dialect.name == "sqlite":
+        from contractor_offer_sqlite import transition
+        return transition(session, offer_id, contractor_id, "declined")
+
     lead_id = session.execute(
         text("""
             SELECT lead_id

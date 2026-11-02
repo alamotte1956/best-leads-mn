@@ -4,9 +4,12 @@ Preserves existing Contractor and Lead database columns.
 This version does NOT send SMS or assign leads automatically.
 """
 import os
+import mimetypes
+mimetypes.add_type('image/webp', '.webp')
 import re
 import secrets
 import logging
+import click
 from datetime import datetime, timezone
 
 from flask import (
@@ -44,6 +47,38 @@ ContractorPasswordSetupToken = define_contractor_password_setup_token(db)
 from admin_login_attempt import define_admin_login_attempt
 AdminLoginAttempt = define_admin_login_attempt(db)
 
+from credential_verification import define_verification
+CredentialReview = define_verification(db)
+from market_pricing import define_benchmark
+MarketBenchmark = define_benchmark(db)
+from integration_models import define_integrations
+Delivery, Payment, ProviderEvent, LeadPrice = define_integrations(db)
+from checkout_reconciliation import define_checkout_history
+CheckoutQuoteHistory = define_checkout_history(db)
+from email_delivery import define_email_tracking, email_delivery
+ResendEvent, EmailSuppression = define_email_tracking(db)
+app.register_blueprint(email_delivery)
+from contractor_account_notifications import define_account_events
+ContractorAccountEvent = define_account_events(db)
+from consumer_requests import define_consumer_updates
+ConsumerRequestUpdate = define_consumer_updates(db)
+from lead_lifecycle import define_lead_status_events
+LeadStatusEvent = define_lead_status_events(db)
+from service_requests import define_service_requests
+ServiceRequest = define_service_requests(db)
+from notification_preferences import define_notification_preferences
+NotificationPreference, NotificationPreferenceEvent = define_notification_preferences(db)
+from lead_progress import define_lead_progress
+ContractorLeadProgress, LeadProgressEvent = define_lead_progress(db)
+from national_coverage import define_national_coverage
+LeadMarket, MarketApplication, MarketReview, ContractorOrigin = define_national_coverage(db)
+from reward_transactions import define_rewards
+RewardBusiness, RewardCredit, RewardMonth, RewardSpin = define_rewards(db)
+from reward_review import define_reward_review
+RewardIdentityApplication, RewardBusinessAccount, RewardIdentityReview = define_reward_review(db)
+from location_review import define_location_review
+LeadLocationReview=define_location_review(db)
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -68,6 +103,12 @@ class Contractor(db.Model):
     sms_consent_method = db.Column(db.String(50))
     password_hash = db.Column(db.String(512), nullable=True)
     sms_opted_out_at = db.Column(db.DateTime(timezone=True))
+
+
+    @property
+    def credential_review_current(self):
+        from credential_verification import current_credentials
+        return current_credentials(self)
 
 
 class ContractorService(db.Model):
@@ -132,6 +173,14 @@ def csrf_token():
 
 
 app.jinja_env.globals["csrf_token"] = csrf_token
+
+
+@app.after_request
+def protect_account_pages(response):
+    if request.path.startswith(('/contractor/', '/admin')):
+        from consumer_requests import PRIVATE_HEADERS
+        response.headers.update(PRIVATE_HEADERS)
+    return response
 
 
 class SmsSuppression(db.Model):
@@ -199,8 +248,10 @@ class SmsNotification(db.Model):
         nullable=True,
     )
 
-with app.app_context():
-    db.create_all()
+# Schema writes must be explicit in hosted environments.
+if not (os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_PROJECT_ID")) and db_url.startswith("sqlite:"):
+    with app.app_context():
+        db.create_all()
 
 
 
@@ -323,13 +374,31 @@ def admin_contractor_status(contractor_id):
         abort(404)
 
     try:
+        contractor = Contractor.query.filter_by(id=contractor_id).populate_existing().with_for_update().one()
+        from sqlalchemy import update, or_
+        from contractor_account_notifications import queue_account_notice
         if action == 'approve':
-            contractor.active = True
-            contractor.verified = True
+            from credential_verification import latest_review, review_valid
+            review = latest_review(contractor)
+            if not review_valid(contractor, review):
+                abort(409, 'Record a current approved license and insurance review before activation.')
+            changed = db.session.execute(update(Contractor).where(Contractor.id == contractor_id,
+                or_(Contractor.active.is_not(True), Contractor.verified.is_not(True))
+            ).values(active=True, verified=True)).rowcount
+            if changed == 1:
+                queue_account_notice(contractor, 'approved', review_id=review.id)
         else:
-            contractor.active = False
+            changed = db.session.execute(update(Contractor).where(Contractor.id == contractor_id,
+                Contractor.active.is_(True)).values(active=False)).rowcount
+            db.session.execute(update(LeadOffer).where(LeadOffer.contractor_id == contractor_id,
+                LeadOffer.status == 'pending').values(status='cancelled'))
+            if changed == 1:
+                queue_account_notice(contractor, 'deactivated')
 
         db.session.commit()
+    except HTTPException:
+        db.session.rollback()
+        raise
     except Exception:
         db.session.rollback()
         app.logger.exception('Contractor status update failed')
@@ -376,10 +445,10 @@ def admin_dashboard():
         Lead.id.desc()
     ).limit(200).all()
 
-    verified_contractor_count = Contractor.query.filter_by(
-        active=True,
-        verified=True
-    ).count()
+    verified_contractor_count = sum(
+        1 for contractor in Contractor.query.filter_by(active=True, verified=True).all()
+        if contractor.credential_review_current
+    )
 
     contractors = Contractor.query.order_by(
         Contractor.id.desc()
@@ -388,6 +457,8 @@ def admin_dashboard():
     return render_template(
         "admin.html",
         verified_contractor_count=verified_contractor_count,
+        total_lead_count=Lead.query.count(),
+        pending_contractor_count=Contractor.query.filter_by(active=False).count(),
         leads=leads,
         contractors=contractors,
     )
@@ -409,7 +480,11 @@ def admin_logout():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    from national_markets import usa_hostname
+    if usa_hostname(request.host):
+        from national import render_national
+        return render_national()
+    return render_template("index.html", landing_pages=LANDING_PAGES)
 
 
 @app.route("/health")
@@ -499,6 +574,9 @@ def signup():
                         )
                     )
 
+                from communications import queue_email
+                queue_email(f'application:{contractor.id}:received', contractor.email,
+                            'Application received', 'Your Minnesota contractor application was received. Review and approval are required before account access or lead eligibility.')
                 db.session.commit()
                 flash("Application received. Approval is required before leads can be assigned.", "success")
                 return redirect(url_for("signup"))
@@ -510,12 +588,15 @@ def signup():
                 app.logger.exception("Contractor registration failed")
                 flash("We could not save your application. Please try again later.", "danger")
     # Existing ZIP contains contractor_signup.html, not signup.html.
-    return render_template("contractor_signup.html")
+    return render_template("contractor_signup.html", sms_signup_enabled=os.environ.get('SMS_SENDING_ENABLED','').lower() == 'true')
 
 
 @app.route("/request-received")
 def homeowner_request_received():
-    return render_template("request_received.html")
+    from consumer_requests import PRIVATE_HEADERS, owned_request
+    from lead_choice import match_limit, description
+    lead=owned_request()
+    return render_template("request_received.html",match_description=description(match_limit(lead)) if lead else None), 200, PRIVATE_HEADERS
 
 
 @app.route("/api/leads", methods=["POST"])
@@ -537,26 +618,68 @@ def submit_lead():
             "message": "Unsupported submission format"
         }), 415
 
+    def submission_error(message, status=400):
+        if is_json_submission:
+            return jsonify({"status": "error", "message": message}), status
+        if state_code and state_code != 'MN' and code_enabled(state_code):
+            market=next(info for info in STATES.values() if info[0]==state_code)
+            return render_template('national_request.html',market=market,request_error=message),status
+        return render_template("index.html", landing_pages=LANDING_PAGES,
+                               request_error=message), status
+
+    from national_markets import STATES, code_enabled
+    requested_state=str(data.get('state','MN')).strip().upper()
+    state_code=next((info[0] for slug,info in STATES.items() if requested_state in (info[0],slug.upper(),info[1].upper())),None)
+    if not state_code or not code_enabled(state_code):
+        return submission_error('Only approved launch states accept requests. Minnesota is currently open.')
+
     name = clean(data.get("homeowner_name") or data.get("name"), 100)
     phone = clean(data.get("phone"), 20)
     email = clean(data.get("email"), 120).lower()
     zip_code = clean(data.get("zip_code"), 10)
     service = clean(data.get("service_needed"), 100)
     description = clean(data.get("description"), 5000)
+    if state_code != 'MN':
+        from service_catalog import SERVICES
+        if service not in SERVICES:
+            return submission_error('Choose a listed restoration service.')
+
+    from lead_choice import parse_choice
+    try:
+        contractor_limit = parse_choice(data.get('contractor_limit'))
+    except ValueError as error:
+        return submission_error(str(error))
 
     if not name or not valid_phone(phone) or not valid_zip(zip_code) or not service:
-        return jsonify({"status": "error", "message": "Valid name, phone, ZIP and service are required"}), 400
+        return submission_error("Please enter your name, a valid phone number, a five-digit ZIP code, and the service you need.")
     if email and not valid_email(email):
-        return jsonify({"status": "error", "message": "Invalid email address"}), 400
+        return submission_error("Please check your email address or leave it blank.")
 
     try:
+        from location_review import needs_location_review,REVIEW_STATUS
+        initial_status=REVIEW_STATUS if needs_location_review(zip_code,state_code) else 'New'
         lead = Lead(
             homeowner_name=name, phone=phone, email=email or None,
             zip_code=zip_code, service_needed=service,
-            description=description or None, status="New"
+            description=description or None, status=initial_status
         )
         db.session.add(lead)
+        db.session.flush()
+        db.session.add(LeadMatchPreference(lead_id=lead.id, contractor_limit=contractor_limit))
+        from national_markets import usa_hostname
+        hostname=request.host.split(':',1)[0].lower()
+        intake_brand='USA' if usa_hostname(request.host) else 'MN' if hostname in ('restorationcontractorsmn.com','www.restorationcontractorsmn.com') or state_code=='MN' else 'USA'
+        if state_code != 'MN' or intake_brand=='USA':
+            db.session.add(LeadMarket(lead_id=lead.id,state_code=state_code,intake_brand=intake_brand))
+        from communications import queue_email
+        status_origin='https://RestorationContractorsUSA.com' if intake_brand=='USA' else 'https://RestorationContractorsMN.com'
+        queue_email(f'lead:{lead.id}:received', lead.email, 'Restoration request received',
+                    f'Your restoration request #{lead.id} was saved. This is not a confirmed appointment. '
+                    f'Check your current status at {status_origin}/request-status '
+                    'in the original browser used to submit the request. Private status access lasts seven days.')
         db.session.commit()
+        from consumer_requests import remember_request
+        remember_request(lead.id)
         # No automatic assignment yet. Do not report "matched" when no
         # exclusive assignment has actually been created.
         if not is_json_submission:
@@ -564,14 +687,15 @@ def submit_lead():
 
         return jsonify({
             "status": "success",
-            "message": "Request received. Contractor matching is pending.",
+            "message": "Request received. Contractor matching is pending." if lead.status=='New' else 'Request received. Location review is required before matching.',
             "lead_id": lead.id,
-            "assignment_status": "pending"
+            "status_url": url_for('consumer_requests.status'),
+            "assignment_status": "pending" if lead.status=='New' else 'review'
         }), 201
     except Exception:
         db.session.rollback()
         app.logger.exception("Lead creation failed")
-        return jsonify({"status": "error", "message": "Unable to save request"}), 500
+        return submission_error("We could not save your request. Your details are still here; please try again later.", 500)
 
 
 
@@ -583,14 +707,19 @@ def normalize_sms_phone(value):
     return digits if len(digits) == 10 else None
 
 
-def contractor_sms_eligible(contractor):
-    """Return True only when automated SMS is permitted."""
+def contractor_sms_eligible(contractor, *, include_preferences=True):
+    """Return True only when automated SMS is permitted.
+
+    The preference bypass is for read-only consent inspection. Senders use the
+    default so contractor alert choices remain part of delivery authorization.
+    """
     if contractor is None:
         return False
 
     if not (
         contractor.active is True
         and contractor.verified is True
+        and contractor.credential_review_current
         and contractor.is_test is False
         and contractor.sms_consent is True
         and contractor.sms_consent_at is not None
@@ -608,7 +737,12 @@ def contractor_sms_eligible(contractor):
         phone_normalized=normalized
     ).first()
 
-    return suppressed is None
+    if suppressed is not None:
+        return False
+    if include_preferences:
+        from notification_preferences import lead_alert_enabled
+        return lead_alert_enabled(contractor.id,'sms')
+    return True
 
 
 @app.route("/webhooks/twilio/sms", methods=["POST"])
@@ -680,6 +814,10 @@ def twilio_sms_webhook():
 
 
 LEGAL_STYLE = """
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Restoration Contractors MN policies</title>
+<link rel="stylesheet" href="/static/css/compatibility.css"></head><body>
 <style>
 body{font-family:Arial,sans-serif;max-width:850px;margin:45px auto;padding:0 20px;
 color:#243342;line-height:1.65}a{color:#1768a0}h1,h2{line-height:1.2}
@@ -744,7 +882,7 @@ def privacy():
         <p>We use administrative and technical safeguards, but no system is
         completely secure. To request access, correction or deletion, use the
         contact information published on our website.</p>
-        <p><em>Last updated: October 27, 2026.</em></p>
+        <p><em>Last updated: October 27, 2026.</em></p></body></html>
         """
     )
 
@@ -768,6 +906,13 @@ def terms():
         When a lead offer has a displayed acceptance deadline, it may
         expire if not accepted in time. The planned sequential matching
         process uses a 15-minute acceptance window.</p>
+        <p>Homeowners can request one contractor or up to three contractors.
+        A single-contractor request can be accepted by no more than one contractor
+        through this platform. A shared request can be accepted by up to three.
+        Contractors see the request type before accepting or paying. Contact
+        access remains subject to approval and any applicable verified-payment
+        requirement. A request does not guarantee that the selected number of
+        contractors will be available, respond, provide estimates or perform work.</p>
         <p>Contractors may voluntarily enroll in operational SMS
         notifications through an unchecked-by-default consent checkbox.
         SMS consent is not required to register or use our services.
@@ -792,7 +937,7 @@ def terms():
         <h2>Communications</h2>
         <p>Where SMS is offered, message frequency may vary, message and data rates
         may apply, and users can reply STOP to opt out or HELP for assistance.</p>
-        <p><em>Last updated: October 27, 2026.</em></p>
+        <p><em>Last updated: October 27, 2026.</em></p></body></html>
         """
     )
 
@@ -861,6 +1006,8 @@ def contractor_login():
     session.pop("contractor_login_at", None)
 
     session.update(create_contractor_session_data(contractor_id))
+    import hashlib
+    session["contractor_password_fingerprint"] = hashlib.sha256(contractor.password_hash.encode()).hexdigest()
 
     return redirect(url_for("contractor_dashboard"))
 
@@ -910,15 +1057,19 @@ def contractor_dashboard():
     )
 
     offers = []
+    from lead_choice import offer_description
+    from billing import offer_contact_available
 
     for offer, lead in rows:
         offers.append({
             "id": offer.id,
             "lead_id": offer.lead_id,
             "service_needed": lead.service_needed,
+            "match_description": offer_description(offer),
             "zip_code": lead.zip_code,
             "status": offer.status,
-            "expires_at": offer.expires_at,
+            "expires_at": offer.expires_at.replace(tzinfo=timezone.utc) if offer.expires_at.tzinfo is None else offer.expires_at,
+            "contact": {"name": lead.homeowner_name, "phone": lead.phone, "email": lead.email, "description": lead.description} if offer_contact_available(offer) else None,
         })
 
     return render_template(
@@ -976,6 +1127,8 @@ def contractor_accept_offer(offer_id):
             )
             return redirect(url_for("contractor_dashboard"))
 
+        from consumer_requests import queue_request_update
+        queue_request_update(db.session.get(Lead,result['lead_id']), 'accepted', offer_id=offer_id)
         db.session.commit()
 
     except Exception:
@@ -1048,7 +1201,10 @@ def contractor_decline_offer(offer_id):
 
 
 
+from national import administrator
+
 @app.route("/admin/owner-command-center", methods=["GET"])
+@administrator
 def owner_command_center():
     from datetime import datetime, timezone
     from owner_command_center_data import load_owner_dashboard_data
@@ -1082,16 +1238,16 @@ def owner_command_center():
 from restoration_landing_pages import LANDING_PAGES
 
 LANDING_PHOTOS = {
-    "water-damage": "photo-1581578731548-c64695cc6952",
-    "storm-hail-damage": "photo-1500673922987-e212871fec22",
-    "roof-repair": "photo-1635424710928-0544e8512eae",
-    "basement-flooding": "photo-1523413651479-597eb2da0ad6",
-    "mold-remediation": "photo-1584622650111-993a426fbf0a",
-    "fire-smoke-damage": "photo-1487958449943-2429e8be8625",
-    "sewer-backup": "photo-1504307651254-35680f356dfd",
-    "frozen-pipes": "photo-1457269449834-928af64c684d",
-    "siding-repair": "photo-1600596542815-ffad4c1539a9",
-    "emergency-tarping": "photo-1500530855697-b586d89ba3ee",
+    "water-damage": "water-damage-restoration",
+    "storm-hail-damage": "storm-damage-restoration",
+    "roof-repair": "roofing-repair",
+    "basement-flooding": "water-damage-restoration",
+    "mold-remediation": "mold-remediation",
+    "fire-smoke-damage": "fire-smoke-damage-restoration",
+    "sewer-backup": "water-damage-restoration",
+    "frozen-pipes": "water-damage-restoration",
+    "siding-repair": "roofing-repair",
+    "emergency-tarping": "storm-damage-restoration",
 }
 
 @app.route("/services/<slug>", methods=["GET"])
@@ -1101,20 +1257,125 @@ def restoration_service_page(slug):
     if page is None:
         abort(404)
 
-    photo_id = LANDING_PHOTOS[slug]
-    photo = (
-        "https://images.unsplash.com/"
-        + photo_id
-        + "?auto=format&fit=crop&w=1600&q=85"
-    )
+    photo = url_for('static', filename='images/services/' + LANDING_PHOTOS[slug] + '.webp')
 
     return render_template(
         "restoration_service.html",
         slug=slug,
         page=page,
         photo=photo,
+        canonical='https://RestorationContractorsMN.com/services/' + slug,
+        structured_data={
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            'name': page['headline'],
+            'description': page['description'],
+            'url': 'https://RestorationContractorsMN.com/services/' + slug,
+            'inLanguage': 'en-US',
+            'about': {'@type': 'Service', 'name': page['title'],
+                      'areaServed': {'@type': 'State', 'name': 'Minnesota'}},
+        },
         all_pages=LANDING_PAGES,
     )
+
+@app.get('/sitemap.xml')
+def public_sitemap():
+    from flask import Response
+    from xml.sax.saxutils import escape
+    from national_markets import usa_hostname
+    if usa_hostname(request.host):
+        return redirect(url_for('national.sitemap'), code=301)
+    paths = ['/'] + ['/services/' + slug for slug in LANDING_PAGES]
+    xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    xml += ''.join('<url><loc>' + escape('https://RestorationContractorsMN.com' + path) + '</loc></url>' for path in paths)
+    return Response(xml + '</urlset>', mimetype='application/xml')
+
+from national import national
+app.register_blueprint(national)
+from contractor_onboarding import onboarding
+app.register_blueprint(onboarding)
+from operations import operations
+app.register_blueprint(operations)
+from credential_verification import verification
+app.register_blueprint(verification)
+from communications import communications
+from billing import billing
+app.register_blueprint(communications)
+app.register_blueprint(billing)
+from billing import offer_contact_available
+app.jinja_env.globals['offer_contact_available'] = offer_contact_available
+from provider_admin import provider_admin
+app.register_blueprint(provider_admin)
+from consumer_requests import consumer_requests
+app.register_blueprint(consumer_requests)
+from service_requests import service_requests
+app.register_blueprint(service_requests)
+from notification_preferences import notification_preferences
+app.register_blueprint(notification_preferences)
+from lead_progress import lead_progress
+app.register_blueprint(lead_progress)
+from national_coverage import coverage
+app.register_blueprint(coverage)
+from reward_review import reward_review
+app.register_blueprint(reward_review)
+from national_intake import national_intake
+app.register_blueprint(national_intake)
+from location_review import locations
+app.register_blueprint(locations)
+
+@app.cli.command('refresh-market-benchmarks')
+def refresh_market_benchmarks_command():
+    from market_pricing import refresh_benchmarks
+    import click
+    try:
+        click.echo({'imported':refresh_benchmarks()})
+    except RuntimeError as error:
+        raise click.ClickException(str(error))
+
+@app.cli.command('deliver-notifications')
+def deliver_notifications_command():
+    from communications import deliver_pending
+    import click
+    click.echo(deliver_pending())
+
+
+from werkzeug.exceptions import HTTPException
+
+@app.errorhandler(HTTPException)
+def browser_error(error):
+    response = error.get_response()
+    if request.is_json or request.path.startswith("/api/"):
+        response.set_data(app.json.dumps({"status": "error", "message": error.description}))
+        response.content_type = "application/json"
+    else:
+        response.set_data(render_template("error.html", code=error.code,
+                          title=error.name, message=error.description))
+        response.content_type = "text/html; charset=utf-8"
+    return response
+
+
+
+@app.cli.command('reconcile-checkouts')
+@click.option('--limit', default=100, type=click.IntRange(1,500))
+@click.option('--after-id', default=0, type=click.IntRange(min=0))
+def reconcile_checkouts_command(limit, after_id):
+    """Inspect/expire existing checkouts; never create a checkout or confirm payment."""
+    from checkout_reconciliation import reconcile_batch
+    try:
+        click.echo(reconcile_batch(limit=limit,after_id=after_id))
+    except Exception as error:
+        db.session.rollback()
+        raise click.ClickException('Checkout reconciliation is unavailable: '+type(error).__name__)
+
+
+from lead_choice import define_lead_choice, offer_description
+LeadMatchPreference, BenchmarkMatchType = define_lead_choice(db)
+app.jinja_env.globals['offer_match_description'] = offer_description
+
+from owner_finance import finance, define_owner_finance
+FinanceEntry, FinanceReview = define_owner_finance(db)
+app.register_blueprint(finance)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

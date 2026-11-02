@@ -4,7 +4,8 @@
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Restoration Contractors MN - Admin Command Center</title>
-    <script src='https://cdn.tailwindcss.com'></script>
+    <link rel="stylesheet" href="/static/css/admin.css">
+<style>[hidden]{display:none!important}button,input{min-height:44px}:focus-visible{outline:3px solid #f58232;outline-offset:3px}</style><link rel="stylesheet" href="/static/css/compatibility.css">
 </head>
 <body class='bg-slate-100 font-sans'>
     <header class='bg-slate-100 text-slate-900 shadow-lg sticky top-0 z-50'>
@@ -31,10 +32,13 @@
     </header>
 
     <main class='max-w-7xl mx-auto px-4 py-12'>
+<h1 class="text-3xl font-bold mb-4">Minnesota operations</h1>
+{% with messages = get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<p role="status" class="bg-white border p-4 mb-4 rounded-lg">{{ message }}</p>{% endfor %}{% endwith %}
+<div class="bg-white p-6 rounded-2xl border mb-8"><p class="font-bold">{{ pending_contractor_count }} inactive applications or contractors</p><p class="text-sm mt-2">Review credentials before approval. Create a private password setup link after approval.</p><label for="operations-search" class="block font-bold mt-4 mb-2">Find a lead or contractor</label><input id="operations-search" type="search" placeholder="Search by name, ZIP, service, email, or status" class="w-full border rounded-lg p-3"><p class="text-sm mt-2">Searches the latest 200 leads and 200 contractors shown below.</p><p id="operations-search-result" role="status" aria-live="polite"></p><div class="flex flex-wrap gap-4 mt-4"><a href="/admin/owner-command-center" class="underline">Detailed reporting</a><a href="/admin/finance" class="underline">Profit and expenses</a><a href="/admin/national" class="underline">National overview</a><a href="/admin/service-requests" class="underline">Service requests</a><a href="/admin/integrations" class="underline">Email, SMS and payments</a></div></div>
         <div class='grid grid-cols-1 md:grid-cols-2 gap-8 mb-12'>
             <div class='bg-white p-6 rounded-2xl shadow-sm border border-gray-200'>
                 <div class='text-sm font-bold text-gray-400 uppercase tracking-wider mb-1'>Total Homeowner Leads</div>
-                <div class='text-4xl font-extrabold text-gray-900'>{{ leads|length }}</div>
+                <div class='text-4xl font-extrabold text-gray-900'>{{ total_lead_count }}</div>
             </div>
             <div class='bg-white p-6 rounded-2xl shadow-sm border border-gray-200'>
                 <div class='text-sm font-bold text-gray-400 uppercase tracking-wider mb-1'>Verified Contractors</div>
@@ -44,7 +48,7 @@
 
         <div class='bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-12'>
             <div class='p-6 border-b border-gray-200'>
-                <h2 class='text-xl font-bold text-gray-900'>Homeowner Emergency Leads</h2>
+                <h2 class='text-xl font-bold text-gray-900'>Homeowner requests</h2>
             </div>
             <div class='overflow-x-auto'>
                 <table class='w-full text-left border-collapse'>
@@ -62,12 +66,12 @@
                     <tbody class='divide-y divide-gray-200 text-sm'>
                         {% for lead in leads %}
                         <tr>
-                            <td class='p-4 font-mono text-gray-500'>#{{ lead.id }}</td>
+                            <td class='p-4 font-mono text-gray-500'><a href="{{ url_for('operations.lead_review',lead_id=lead.id) }}">#{{ lead.id }} — Review</a></td>
                             <td class='p-4 font-bold text-gray-900'>{{ lead.homeowner_name }}</td>
                             <td class='p-4 text-gray-600'>{{ lead.phone }}<br><span class='text-xs text-gray-400'>{{ lead.email }}</span></td>
                             <td class='p-4 font-mono font-medium text-amber-600'>{{ lead.zip_code }}</td>
                             <td class='p-4 text-gray-800 font-semibold'>{{ lead.service_needed }}</td>
-                            <td class='p-4 text-gray-600 max-w-xs truncate'>{{ lead.description or 'N/A' }}</td>
+                            <td class='p-4 text-gray-600 max-w-xs'>{% if lead.description %}<details><summary class='cursor-pointer'>View details</summary><p class='mt-2 whitespace-pre-wrap'>{{ lead.description }}</p></details>{% else %}No details provided{% endif %}</td>
                             <td class='p-4'><span class='px-2 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full'>{{ lead.status }}</span></td>
                         </tr>
                         {% endfor %}
@@ -78,7 +82,7 @@
 
         <div class='bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden'>
             <div class='p-6 border-b border-gray-200'>
-                <h2 class='text-xl font-bold text-gray-900'>Verified Contractor Network</h2>
+                <h2 class='text-xl font-bold text-gray-900'>Contractor applications and network</h2>
             </div>
             <div class='overflow-x-auto'>
                 <table class='w-full text-left border-collapse'>
@@ -99,14 +103,16 @@
                         {% for contractor in contractors %}
                         <tr>
                             <td class='p-4 font-mono text-gray-500'>#{{ contractor.id }}</td>
-                            <td class='p-4 font-bold text-gray-900'>{{ contractor.company_name }}</td>
+                            <td class='p-4 font-bold text-gray-900'>{{ contractor.company_name }}<p><a href="{{ url_for('verification.review_credentials',contractor_id=contractor.id) }}">Review license &amp; insurance</a> · <a href="{{ url_for('notification_preferences.inspect',contractor_id=contractor.id) }}">Lead-alert choices</a></p>{% if contractor.active and contractor.verified and not contractor.is_test and contractor.credential_review_current %}
+<form method="post" action="{{ url_for('onboarding.issue_setup', contractor_id=contractor.id) }}">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button type="submit">Create password setup link</button></form>{% endif %}</td>
                             <td class='p-4 text-gray-800'>{{ contractor.contact_name }}</td>
                             <td class='p-4 text-gray-600'>{{ contractor.phone }}<br><span class='text-xs text-gray-400'>{{ contractor.email }}</span></td>
                             <td class='p-4 font-mono text-emerald-600 font-semibold'>{{ contractor.license_number }}</td>
                             <td class='p-4 text-gray-800'>{{ contractor.service_type }}</td>
                             <td class='p-4 font-bold text-amber-600'>{{ contractor.rating }}</td>
                             <td class='p-4'>
-                                {% if contractor.active and contractor.verified %}
+                                {% if contractor.active and contractor.verified and not contractor.credential_review_current %}<span class="text-orange-700 font-bold">Credential review required</span>{% elif contractor.active and contractor.verified %}
                                 <span class='text-green-700 font-bold'>Approved / Verified</span>
                                 {% elif contractor.active %}
                                 <span class='text-orange-700 font-bold'>Active / Unverified</span>
@@ -141,5 +147,7 @@
             </div>
         </div>
     </main>
-</body>
+<script>
+(function(){const input=document.getElementById('operations-search');const rows=Array.from(document.querySelectorAll('tbody tr'));input.addEventListener('input',function(){const q=input.value.trim().toLocaleLowerCase();let shown=0;rows.forEach(function(row){row.hidden=!row.textContent.toLocaleLowerCase().includes(q);if(!row.hidden)shown++;});document.getElementById('operations-search-result').textContent=shown+' records shown';});}());
+</script></body>
 </html>

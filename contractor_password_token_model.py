@@ -2,7 +2,7 @@ def define_contractor_password_setup_token(db):
     class ContractorPasswordSetupToken(db.Model):
         __tablename__ = "contractor_password_setup_tokens"
 
-        id = db.Column(db.BigInteger, primary_key=True)
+        id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True)
 
         contractor_id = db.Column(
             db.Integer,

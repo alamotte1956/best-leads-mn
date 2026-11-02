@@ -1,17 +1,2 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Request Received | Restoration Contractors MN</title>
-<style>body{margin:0;font-family:Arial,sans-serif;color:#172b4d;background:#f3f6fa}main{max-width:850px;margin:40px auto;padding:0 24px}a{color:#1768a0}</style>
-</head>
-<body>
-{% include 'partials/brand_header.html' %}
-<main>
-<h1>Request received</h1>
-<p>Thank you. Your contractor request has been received. Contractor matching is pending.</p>
-<p><a href="/">Return to homepage</a></p>
-</main>
-</body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Request received | Restoration Contractors MN</title><link rel="stylesheet" href="/static/css/experience.css"><link rel="stylesheet" href="/static/css/compatibility.css">
+</head><body><header class="site-header">{% include 'partials/brand_logo.html' %}</header><main class="page-wrap narrow"><span class="status-pill">Request received</span><h1 style="margin-top:24px">You’ve taken the first step.</h1><p class="lead">Your restoration request has been saved.{% if session.get('last_lead_reference') %} Your reference is <strong>#{{ session.last_lead_reference }}</strong>.{% endif %}</p><div class="notice"><strong>You don’t need to submit it again.</strong><p>Submission is not a confirmed appointment. Contractor availability and response times vary.</p></div>{% if match_description %}<p><strong>Your contractor choice:</strong> {{ match_description }}</p>{% endif %}<h2>What happens next?</h2><ol><li><p>Your request is available for review and matching by service and ZIP code.</p></li><li><p>If an eligible contractor accepts, they can use the contact details you provided to discuss the project.</p></li><li><p>Before hiring, confirm credentials, the scope of work, pricing, and timing directly with the contractor.</p></li></ol><div class="form-actions"><a class="button primary" href="/request-status">Check your request status</a><a class="button secondary" href="/">Back to home</a></div><p class="small">Private status access is available for seven days in the browser used to submit this request.</p></main></body></html>

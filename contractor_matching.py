@@ -14,6 +14,12 @@ def normalize_zip(value):
 
 def contractor_matches(contractor, lead, additional_services=None):
     """Return True when an approved contractor matches a lead."""
+    status=getattr(lead,'status','New')
+    # SQLAlchemy applies the New default only when an unsaved preview is flushed.
+    if status is None and getattr(lead,'id',None) is None:
+        status='New'
+    if status!='New':
+        return False
 
     if contractor.active is not True:
         return False
@@ -23,6 +29,17 @@ def contractor_matches(contractor, lead, additional_services=None):
 
     if contractor.is_test is not False:
         return False
+
+    if not getattr(contractor, 'credential_review_current', True):
+        return False
+
+    from national_coverage import lead_state, market_eligible, minnesota_origin
+    if not market_eligible(contractor, lead):
+        return False
+    # Each additional state has its own reviewed services and exact ZIP coverage.
+    # Legacy Minnesota coverage and service fields retain their existing behavior.
+    if lead_state(lead) != 'MN' or not minnesota_origin(contractor):
+        return True
 
     requested_service = normalize_service(lead.service_needed)
 

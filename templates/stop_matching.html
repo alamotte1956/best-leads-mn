@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+  <title>Stop matching | Restoration Contractors MN</title>
+  <link rel="stylesheet" href="/static/css/experience.css"><link rel="stylesheet" href="/static/css/compatibility.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  {% include 'partials/brand_header.html' %}
+  <main class="page-wrap narrow" id="main">
+    <a href="{{ url_for('consumer_requests.status') }}">← Back to request status</a>
+    <p class="eyebrow" style="margin-top:24px">REQUEST #{{ lead.id }}</p>
+    <h1>Stop looking for contractors?</h1>
+    <p class="lead">We’ll stop matching for this request. Your request remains in our records.</p>
+    <section class="form-card" aria-labelledby="request-summary-heading">
+      <h2 id="request-summary-heading">Check your request</h2>
+      <dl class="request-summary"><dt>Service</dt><dd>{{ lead.service_needed }}</dd><dt>Property ZIP code</dt><dd>{{ lead.zip_code }}</dd></dl>
+      <p>Existing project arrangements and payments stay in place. If you’ve already spoken with a contractor, contact them directly about your project.</p>
+      {% if error %}<p class="error-box" role="alert">{{ error }}</p>{% endif %}
+      <form method="post">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="request_reference" value="{{ lead.id }}">
+        <label class="check-label" for="confirm-stop"><input type="checkbox" name="confirm_stop" value="yes" id="confirm-stop" required><span>I want to stop matching for request #{{ lead.id }}.</span></label>
+        <div class="form-actions">
+          <button class="button primary" type="submit">Stop matching for this request</button>
+          <a class="button secondary" href="{{ url_for('consumer_requests.status') }}">Keep matching</a>
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>
