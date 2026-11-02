@@ -1246,8 +1246,31 @@ def restoration_service_page(slug):
         slug=slug,
         page=page,
         photo=photo,
+        canonical='https://RestorationContractorsMN.com/services/' + slug,
+        structured_data={
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            'name': page['headline'],
+            'description': page['description'],
+            'url': 'https://RestorationContractorsMN.com/services/' + slug,
+            'inLanguage': 'en-US',
+            'about': {'@type': 'Service', 'name': page['title'],
+                      'areaServed': {'@type': 'State', 'name': 'Minnesota'}},
+        },
         all_pages=LANDING_PAGES,
     )
+
+@app.get('/sitemap.xml')
+def public_sitemap():
+    from flask import Response
+    from xml.sax.saxutils import escape
+    from national_markets import usa_hostname
+    if usa_hostname(request.host):
+        return redirect(url_for('national.sitemap'), code=301)
+    paths = ['/'] + ['/services/' + slug for slug in LANDING_PAGES]
+    xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    xml += ''.join('<url><loc>' + escape('https://RestorationContractorsMN.com' + path) + '</loc></url>' for path in paths)
+    return Response(xml + '</urlset>', mimetype='application/xml')
 
 from national import national
 app.register_blueprint(national)

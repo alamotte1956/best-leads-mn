@@ -53,3 +53,23 @@ class LocalServicePhotoTests(unittest.TestCase):
         with self.client.get('/static/images/restoration-professional-hero.webp') as image:
             self.assertEqual(image.status_code,200)
             self.assertLess(len(image.data),150000)
+
+
+    def test_webp_registration_overrides_incorrect_platform_mime_mapping(self):
+        import subprocess
+        import sys
+        from pathlib import Path
+        code = """
+import os
+os.environ['DATABASE_URL']='sqlite:///:memory:'
+import mimetypes
+mimetypes.add_type('application/octet-stream','.webp')
+from app import app
+with app.test_client().get('/static/images/rcmn-logo-tm.webp') as response:
+    assert response.status_code == 200
+    assert response.mimetype == 'image/webp', response.mimetype
+print('correct WebP MIME type')
+"""
+        result=subprocess.run([sys.executable,'-c',code],cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,text=True,timeout=15)
+        self.assertEqual(result.returncode,0,result.stderr+result.stdout)
