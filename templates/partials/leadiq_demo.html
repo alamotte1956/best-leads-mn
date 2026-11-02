@@ -1,0 +1,46 @@
+<link rel="stylesheet" href="/static/css/leadiq-demo.css">
+<section id="leadiq-rewards-wheel" data-leadiq-demo aria-labelledby="leadiq-title">
+
+
+<span class="iq-demo-badge">INTERACTIVE DEMO</span>
+<h2 id="leadiq-title">LeadIQ&#8482; Rewards</h2>
+<p class="iq-subtitle">Take the wheel for a spin</p>
+
+<div class="iq-wheel-wrap">
+  <div class="iq-pointer" aria-hidden="true"></div>
+  <svg id="iq-rotor" class="iq-wheel"
+       viewBox="0 0 360 360"
+       role="img"
+       aria-label="Demonstration wheel with illustrative reward labels">
+    <g id="iq-segments"></g>
+    <circle cx="180" cy="180" r="31"
+            fill="white" stroke="#f58232"
+            stroke-width="5"></circle>
+    <text x="180" y="186"
+          text-anchor="middle"
+          font-size="18"
+          font-weight="bold"
+          fill="#17558a">IQ</text>
+  </svg>
+</div>
+
+<div id="iq-result" class="iq-result"
+     role="status" aria-live="polite">
+  Try the animation. Every result is a sample, with no monetary value.
+</div>
+
+<button type="button" id="iq-spin"
+        class="iq-spin-button" disabled>
+  Loading demo…
+</button>
+
+<p id="iq-spin-info">No purchase, account or reward credit is needed for this demo.</p><p><a href="/contractor/rewards">Program status and business identity review</a></p>
+
+<p class="iq-disclaimer">
+  Demo only. No actual discounts, credits or free leads are awarded.
+  Labels are illustrative and do not announce future prizes or odds.
+</p>
+
+<noscript><p>Enable JavaScript to try the animation. This demo has no reward value.</p></noscript>
+<script src="/static/js/leadiq-demo.js" defer></script>
+</section>
