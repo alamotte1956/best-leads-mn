@@ -123,6 +123,11 @@ def dashboard():
     return render_template('national_admin.html', states=STATES, enabled=enabled,
         reports=national_report())
 
+@national.get('/leadiq-demo')
+def leadiq_demo():
+    return render_template('leadiq_demo.html')
+
+
 @national.post('/contractor/rewards/spin')
 def spin():
     # No real prize selection or redemption before official rules and legal approval.
