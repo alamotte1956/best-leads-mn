@@ -10,6 +10,8 @@ STATE_COPY = {
         'Whether the problem is a plumbing leak, smoke damage or a storm-related repair, a useful request helps a restoration professional understand your North Carolina property.'),
     'georgia': ('Take the next step toward restoring your property.',
         'Atlanta-area property damage can involve cleanup, drying and repair. Describe the affected rooms, the source of damage if known and the restoration service you are looking for.'),
+    'indiana': ('A clear next step for Indiana properties.',
+        'From basement water intrusion to fire cleanup and storm-related roof damage, Indiana property owners need a plan based on the location and scope of work. This future market is not open for requests.'),
     'wisconsin': ('Restore your space, one clear step at a time.',
         'Wisconsin property owners may need help with frozen pipes, water intrusion, fire cleanup or storm repairs. Share the location and type of damage so the scope can be reviewed.'),
 }

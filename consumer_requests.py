@@ -92,6 +92,7 @@ def request_status(lead):
 @consumer_requests.get('/request-status')
 def status():
     from contact_links import mailto_address
+    from national_coverage import lead_state
     from lead_choice import match_limit, description
     from app import db, Contractor, LeadOffer
     lead = owned_request()
@@ -103,6 +104,7 @@ def status():
             business=db.session.get(Contractor,accepted.contractor_id)
             matches.append(dict(contractor=business,phone_digits=re.sub(r'[^0-9]','',business.phone or ''),contractor_mailto=mailto_address(business.email)))
     return render_template('request_status.html',lead=lead,state=state,matches=matches,
+        legal_state=lead_state(lead) if lead else 'MN',
         match_description=description(match_limit(lead)) if lead else None,
         status_copy=STATUS_COPY.get(state),contractor=contractor,phone_digits=phone_digits,
         contractor_mailto=mailto_address(contractor.email) if contractor else None),200,PRIVATE_HEADERS

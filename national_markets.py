@@ -6,6 +6,7 @@ STATES = {
     'north-carolina': ('NC', 'North Carolina', ('Charlotte', 'Raleigh–Durham')),
     'georgia': ('GA', 'Georgia', ('Atlanta suburbs',)),
     'wisconsin': ('WI', 'Wisconsin', ('Western Wisconsin', 'Milwaukee', 'Madison')),
+    'indiana': ('IN', 'Indiana', ('Indianapolis', 'Fort Wayne', 'Northwest Indiana')),
 }
 
 def city_slug(name):

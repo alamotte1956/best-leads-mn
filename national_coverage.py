@@ -16,14 +16,14 @@ def define_national_coverage(db):
         __tablename__ = 'contractor_origins'
         contractor_id = db.Column(db.Integer, db.ForeignKey('contractors.id'), primary_key=True)
         state_code = db.Column(db.String(2), nullable=False)
-        __table_args__ = (db.CheckConstraint("state_code in ('MN','TX','FL','NC','GA','WI')"),)
+        __table_args__ = (db.CheckConstraint("state_code in ('MN','TX','FL','NC','GA','WI','IN')"),)
 
     class LeadMarket(db.Model):
         __tablename__ = 'lead_markets'
         lead_id = db.Column(db.Integer, db.ForeignKey('leads.id'), primary_key=True)
         state_code = db.Column(db.String(2), nullable=False, index=True)
         intake_brand = db.Column(db.String(3), nullable=False, default='MN')
-        __table_args__ = (db.CheckConstraint("state_code in ('MN','TX','FL','NC','GA','WI')"),
+        __table_args__ = (db.CheckConstraint("state_code in ('MN','TX','FL','NC','GA','WI','IN')"),
                          db.CheckConstraint("intake_brand in ('MN','USA')",name='lead_market_intake_brand'))
 
     class MarketApplication(db.Model):
@@ -38,7 +38,7 @@ def define_national_coverage(db):
         status = db.Column(db.String(20), nullable=False, default='pending')
         pending_key = db.Column(db.String(50), unique=True)
         created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-        __table_args__ = (db.CheckConstraint("state_code in ('MN','TX','FL','NC','GA','WI')", name='market_application_state'),
+        __table_args__ = (db.CheckConstraint("state_code in ('MN','TX','FL','NC','GA','WI','IN')", name='market_application_state'),
                          db.CheckConstraint("status in ('pending','approved','rejected')"))
 
         @property
@@ -158,7 +158,7 @@ def apply(contractor):
         license_number = request.form.get('license_number', '').strip()
         notes = request.form.get('applicant_notes', '').strip()
         if state not in {s[0] for s in STATES.values()} or (state=='MN' and minnesota_origin(contractor)):
-            error = 'Choose one of the five expansion states. Minnesota coverage stays in your existing settings.'
+            error = 'Choose one of the six future states. Minnesota coverage stays in your existing settings.'
         elif not zips or len(raw_zips) > 500 or not all(valid_zip(z) for z in zips):
             error = 'Enter five-digit ZIP codes separated by commas, up to 500 characters.'
         elif not services or any(s not in SERVICES for s in services):

@@ -25,6 +25,7 @@
       {% set contractor=match.contractor %}{% set phone_digits=match.phone_digits %}{% set contractor_mailto=match.contractor_mailto %}
       <section class="form-card" style="margin-top:24px" aria-labelledby="contractor-heading-{{ loop.index }}">
         <h2 id="contractor-heading-{{ loop.index }}">{{ contractor.company_name }}</h2>
+        {% if contractor.license_number %}<p>License or registration supplied by the business: <strong>{{ contractor.license_number }}</strong>. Verify the required credential and scope before hiring.</p>{% endif %}
         <p>Discuss the work, credentials, estimate and timing directly with this business before hiring.</p>
         <div class="form-actions">
           {% if phone_digits %}<a class="button primary" href="tel:{{ phone_digits }}">Call {{ contractor.phone }}</a>{% endif %}
@@ -42,6 +43,7 @@
       <div class="notice"><strong>No need to submit a duplicate.</strong><p>A request number or email address alone cannot open private request details.</p></div>
       <p><a class="button primary" href="/request-access">Email me a private access link</a></p><a class="button secondary" href="/">Back to home</a>
     {% endif %}
+    {% if lead %}{% include 'partials/state_notice.html' %}{% endif %}
   </main>
 </body>
 </html>

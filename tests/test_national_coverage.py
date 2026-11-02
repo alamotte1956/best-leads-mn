@@ -81,7 +81,7 @@ class NationalCoverageTests(unittest.TestCase):
                 self.assertIn('no-store',response.headers['Cache-Control']);self.assertIn('noindex',response.text)
                 self.assertIn('AI-generated',response.text);self.assertNotIn('rel="canonical"',response.text)
             descriptions.add(self.client.get(paths[0][0]).text)
-        self.assertEqual(len(descriptions),6)
+        self.assertEqual(len(descriptions),7)
         self.assertEqual(self.client.get('/admin/national/preview/texas/no-such-city').status_code,404)
 
     def test_sitemap_excludes_disabled_and_private_pages(self):
