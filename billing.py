@@ -185,7 +185,8 @@ def market_quote(contractor,offer_id):
         except IntegrityError:
             db.session.rollback()
             abort(409,'Another quote is being prepared. Please refresh your payment history.')
-    return render_template('market_quote.html',payment=payment)
+    from lead_choice import offer_description
+    return render_template('market_quote.html',payment=payment,match_description=offer_description(offer))
 
 
 @billing.post('/contractor/offers/<int:offer_id>/checkout')
@@ -196,7 +197,8 @@ def checkout(contractor,offer_id):
     from market_pricing import aware
     require_csrf()
     key,origin=stripe_configuration()
-    billable_offer(contractor,offer_id)
+    offer=billable_offer(contractor,offer_id)
+    from lead_choice import offer_description
     payment=Payment.query.filter_by(offer_id=offer_id,contractor_id=contractor.id).first()
     if not payment or not payment.market_benchmark_id or not payment.quote_expires_at:
         abort(409,'Request a current market quote before starting checkout. Assigned prices are disabled.')
@@ -232,7 +234,7 @@ def checkout(contractor,offer_id):
     suffix=''.join(chr(97+value%26) for value in hashlib.sha256(str(payment.id).encode()).digest()[:8])
     created=create_checkout(api_key=key,mode='payment',
         line_items=[{'price_data':{'currency':'usd','unit_amount':payment.amount_cents,
-            'product_data':{'name':f'Restoration lead offer #{offer_id}'}},'quantity':1}],
+            'product_data':{'name':f'Restoration lead offer #{offer_id}', 'description':offer_description(offer)}},'quantity':1}],
         client_reference_id=str(payment.id),
         integration_identifier='restoration-market-'+suffix,
         expires_at=int(aware(payment.quote_expires_at).timestamp()),

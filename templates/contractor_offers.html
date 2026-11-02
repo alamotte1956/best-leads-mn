@@ -250,7 +250,7 @@
 
     {% for offer in offers %}
     <section class="offer" data-offer-status="{{ offer.status }}">
-        <h2>Lead #{{ offer.lead_id }}</h2>
+        <h2>Lead #{{ offer.lead_id }}</h2><p><strong>Lead type:</strong> {{ offer.match_description }}</p>
         <p><strong>Service:</strong> {{ offer.service_needed }}</p>
         <p><strong>ZIP code:</strong> {{ offer.zip_code }}</p>
 

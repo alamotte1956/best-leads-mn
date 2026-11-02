@@ -47,11 +47,13 @@ test('homeowner can submit and track a request without JavaScript',async({browse
   const context=await browser.newContext({baseURL,javaScriptEnabled:false});const page=await context.newPage();
   try{
     await page.goto('/');await page.getByLabel('What kind of help do you need?').selectOption('Mold Remediation');
+    await page.getByLabel('How many contractors would you like to hear from?').selectOption('3');
     await page.getByLabel('Property ZIP code').fill('55401');await page.getByLabel('Full name').fill('Synthetic No-JS Consumer');
     await page.getByLabel('Phone number',{exact:true}).fill('6125550199');
     await page.getByRole('button',{name:'Submit my request',exact:true}).click();
     await expect(page).toHaveURL(/\/request-received$/);await page.goto('/request-status');
     await expect(page.locator('body')).toContainText('Mold Remediation');
+    await expect(page.locator('body')).toContainText('Shared lead');
     await expect(page.locator('body')).not.toContainText('Synthetic No-JS Consumer');
   }finally{await context.close();}
 });
@@ -85,5 +87,6 @@ test('roofing service form works without JavaScript',async({browser,baseURL})=>{
     await page.getByRole('button',{name:'Submit My Request',exact:true}).click();
     await expect(page).toHaveURL(/\/request-received$/);await page.goto('/request-status');
     await expect(page.locator('body')).toContainText('Roof Leak Repair');
+    await expect(page.locator('body')).toContainText('Single-contractor lead');
   }finally{await context.close();}
 });

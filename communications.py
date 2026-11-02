@@ -20,7 +20,9 @@ def queue_email(key, email, subject, body):
 def queue_offer(offer, contractor):
     from app import db, Delivery
     from notification_preferences import lead_alert_enabled
-    body = 'A restoration lead offer is available. Sign in to your contractor dashboard to review it. Availability expires after 15 minutes.'
+    from lead_choice import offer_description
+    lead_type = offer_description(offer)
+    body = lead_type + ' A restoration lead offer is available. Sign in to your contractor dashboard to review it. Availability expires after 15 minutes.'
     if contractor.email and lead_alert_enabled(contractor.id,'email'):
         db.session.add(Delivery(event_key=f'offer:{offer.id}:email',channel='email',
             recipient=contractor.email,subject='New restoration lead offer',body=body,

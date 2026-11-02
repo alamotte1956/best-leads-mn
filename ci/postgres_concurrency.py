@@ -96,6 +96,28 @@ class PostgresConcurrencyTests(unittest.TestCase):
                 db.session.commit();return result is not None
         with ThreadPoolExecutor(max_workers=8) as pool:self.assertEqual(sum(pool.map(attempt,range(8))),1)
 
+    def test_shared_request_concurrent_acceptance_never_exceeds_three(self):
+        from app import Contractor, LeadOffer, LeadMatchPreference
+        db.session.add(LeadMatchPreference(lead_id=self.lead_id,contractor_limit=3))
+        ids=[]
+        for i in range(4):
+            contractor=Contractor(company_name='Synthetic Shared '+str(i),contact_name='Owner',
+                email=f'shared{i}@example.com',phone='6125550100',zip_codes='55401',
+                service_type='Mold Remediation',active=True,verified=True,is_test=False)
+            db.session.add(contractor);db.session.flush()
+            offer=LeadOffer(lead_id=self.lead_id,contractor_id=contractor.id,status='pending',
+                offered_at=datetime.now(timezone.utc)-timedelta(seconds=2),
+                expires_at=datetime.now(timezone.utc)+timedelta(minutes=15))
+            db.session.add(offer);db.session.flush();ids.append((offer.id,contractor.id))
+        db.session.commit()
+        def accept(pair):
+            with app.app_context():
+                from contractor_offer_transactions import accept_contractor_offer
+                row=accept_contractor_offer(db.session,*pair);db.session.commit();return row is not None
+        with ThreadPoolExecutor(max_workers=4) as pool:self.assertEqual(sum(pool.map(accept,ids)),3)
+        db.session.expire_all()
+        self.assertEqual(LeadOffer.query.filter_by(lead_id=self.lead_id,status='accepted').count(),3)
+
     def test_cancellation_and_acceptance_leave_no_pending_offer(self):
         identifier=self.offer()
         def accept():
