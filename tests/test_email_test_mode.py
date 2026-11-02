@@ -54,6 +54,11 @@ class EmailTestModeTests(unittest.TestCase):
         with patch('communications.urlopen',return_value=io.BytesIO(b'{"id":"synthetic"}')) as network:
             self.assertEqual(resend_email(row),'synthetic')
         data=json.loads(network.call_args.args[0].data)
+        headers={name.lower():value for name,value in network.call_args.args[0].header_items()}
+        self.assertEqual(headers['accept'],'application/json')
+        self.assertEqual(headers['user-agent'],
+            'RestorationContractorsMN/1.0 (+https://www.restorationcontractorsmn.com)')
+        self.assertEqual(headers['idempotency-key'],'payload')
         self.assertEqual(data['to'],['consumer@example.com'])
         self.assertEqual(data['subject'],'[TEST] Receipt')
         self.assertTrue(data['text'].startswith('TEST MESSAGE:'))

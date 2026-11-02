@@ -61,6 +61,8 @@ def resend_email(delivery):
                           'tags':[{'name':'delivery_id','value':str(delivery.id)}]}).encode()
     req = Request('https://api.resend.com/emails',data=payload,method='POST',headers={
         'Authorization':'Bearer '+key,'Content-Type':'application/json',
+        'Accept':'application/json',
+        'User-Agent':'RestorationContractorsMN/1.0 (+https://www.restorationcontractorsmn.com)',
         'Idempotency-Key':delivery.event_key})
     with urlopen(req,timeout=20) as response:
         return json.load(response)['id']
