@@ -1,13 +1,27 @@
 """Resend email and Twilio SMS outbox. Provider uncertainty is never auto-retried."""
 import json
 import os
+import re
 from datetime import datetime, timezone
 from urllib.request import Request, urlopen
 from urllib.parse import urlsplit
-from sqlalchemy import update
+from sqlalchemy import update, func, or_
 from flask import Blueprint, request, abort
 
 communications = Blueprint('communications', __name__)
+
+
+def email_test_settings():
+    """An invalid test allowlist blocks all email; it never enables normal mode."""
+    enabled = os.environ.get('EMAIL_TEST_ONLY', '').lower() == 'true'
+    values = {item.strip().lower() for item in os.environ.get('EMAIL_TEST_RECIPIENTS', '').split(',')}
+    valid = bool(values) and all(re.fullmatch(r'[^\s<>@,]+@[^\s<>@,]+\.[^\s<>@,]+', value) for value in values)
+    return enabled, sorted(values) if valid else []
+
+
+def email_recipient_allowed(recipient):
+    testing, allowed = email_test_settings()
+    return not testing or (recipient or '').strip().lower() in allowed
 
 
 def queue_email(key, email, subject, body):
@@ -33,12 +47,17 @@ def queue_offer(offer, contractor):
 
 
 def resend_email(delivery):
+    if not email_recipient_allowed(delivery.recipient):
+        raise ValueError('Recipient is outside the temporary email test allowlist')
     key = os.environ.get('RESEND_API_KEY','')
     sender = os.environ.get('RESEND_FROM_EMAIL','')
     if not key or not sender:
         raise RuntimeError('Resend is not configured')
+    testing, _ = email_test_settings()
+    subject = '[TEST] ' + delivery.subject if testing else delivery.subject
+    body = 'TEST MESSAGE: This email is part of a website test.\n\n' + delivery.body if testing else delivery.body
     payload = json.dumps({'from':sender,'to':[delivery.recipient],
-                          'subject':delivery.subject,'text':delivery.body,
+                          'subject':subject,'text':body,
                           'tags':[{'name':'delivery_id','value':str(delivery.id)}]}).encode()
     req = Request('https://api.resend.com/emails',data=payload,method='POST',headers={
         'Authorization':'Bearer '+key,'Content-Type':'application/json',
@@ -82,7 +101,13 @@ def deliver_pending(limit=20):
     # Disabled/unconfigured SMS must never occupy every batch slot and starve
     # the email-only launch. Unknown channels are also excluded, failing closed.
     result['disabled']=Delivery.query.filter(Delivery.status=='pending',~Delivery.channel.in_(ready)).count()
-    rows=Delivery.query.filter(Delivery.status=='pending',Delivery.channel.in_(ready)).order_by(
+    eligible=Delivery.query.filter(Delivery.status=='pending',Delivery.channel.in_(ready))
+    testing, allowed = email_test_settings()
+    if testing:
+        permitted=or_(Delivery.channel!='email',func.lower(func.trim(Delivery.recipient)).in_(allowed))
+        result['disabled'] += eligible.filter(~permitted).count()
+        eligible=eligible.filter(permitted)
+    rows=eligible.order_by(
         Delivery.id).limit(min(max(limit,1),100)).all()
     for row in rows:
         flag = 'EMAIL_SENDING_ENABLED' if row.channel == 'email' else 'SMS_SENDING_ENABLED'
@@ -118,6 +143,9 @@ def deliver_pending(limit=20):
                 db.session.execute(update(Delivery).where(Delivery.id==row.id, Delivery.status=='pending').values(status='suppressed'));db.session.commit();result['suppressed'] += 1
                 continue
             row.recipient = contractor.email if row.channel == 'email' else contractor.phone
+        if row.channel == 'email' and not email_recipient_allowed(row.recipient):
+            db.session.commit();result['disabled'] += 1
+            continue
         from email_delivery import email_suppressed
         if row.channel == 'email' and email_suppressed(row.recipient):
             db.session.execute(update(Delivery).where(Delivery.id==row.id, Delivery.status=='pending').values(status='suppressed'))
@@ -160,6 +188,10 @@ def deliver_pending(limit=20):
             if row.channel == 'email' and email_suppressed(row.recipient):
                 db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='suppressed'))
                 db.session.commit();result['suppressed'] += 1
+                continue
+            if row.channel == 'email' and not email_recipient_allowed(row.recipient):
+                db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(status='pending'))
+                db.session.commit();result['disabled'] += 1
                 continue
             provider_id = resend_email(row) if row.channel == 'email' else twilio_sms(row)
             db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='sending').values(provider_id=provider_id,status='sent'))

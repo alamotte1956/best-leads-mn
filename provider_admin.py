@@ -11,9 +11,12 @@ PROVIDERS = {
 @administrator
 def overview():
     from app import Delivery,Payment,EmailSuppression
+    from communications import email_test_settings
+    email_testing, email_test_recipients = email_test_settings()
     providers=[{'name':name,'enabled':os.environ.get(flag,'').lower()=='true',
                 'missing':[key for key in keys if not os.environ.get(key)]} for name,(flag,keys) in PROVIDERS.items()]
     return render_template('integrations.html',providers=providers,
+        email_testing=email_testing,email_test_recipients=email_test_recipients,
         deliveries=Delivery.query.order_by(Delivery.id.desc()).limit(100).all(),
         payments=Payment.query.order_by(Payment.id.desc()).limit(100).all(),
         suppression_count=EmailSuppression.query.count(),
