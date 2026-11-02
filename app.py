@@ -7,6 +7,7 @@ import os
 import re
 import secrets
 import logging
+import click
 from datetime import datetime, timezone
 
 from flask import (
@@ -50,6 +51,8 @@ from market_pricing import define_benchmark
 MarketBenchmark = define_benchmark(db)
 from integration_models import define_integrations
 Delivery, Payment, ProviderEvent, LeadPrice = define_integrations(db)
+from checkout_reconciliation import define_checkout_history
+CheckoutQuoteHistory = define_checkout_history(db)
 from email_delivery import define_email_tracking, email_delivery
 ResendEvent, EmailSuppression = define_email_tracking(db)
 app.register_blueprint(email_delivery)
@@ -1311,6 +1314,21 @@ def browser_error(error):
                           title=error.name, message=error.description))
         response.content_type = "text/html; charset=utf-8"
     return response
+
+
+
+@app.cli.command('reconcile-checkouts')
+@click.option('--limit', default=100, type=click.IntRange(1,500))
+@click.option('--after-id', default=0, type=click.IntRange(min=0))
+def reconcile_checkouts_command(limit, after_id):
+    """Inspect/expire existing checkouts; never create a checkout or confirm payment."""
+    from checkout_reconciliation import reconcile_batch
+    try:
+        click.echo(reconcile_batch(limit=limit,after_id=after_id))
+    except Exception as error:
+        db.session.rollback()
+        raise click.ClickException('Checkout reconciliation is unavailable: '+type(error).__name__)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

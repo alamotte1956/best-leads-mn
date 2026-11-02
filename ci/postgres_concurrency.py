@@ -10,7 +10,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-from sqlalchemy import create_engine,text
+from sqlalchemy import create_engine,text,update
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 
@@ -143,6 +143,62 @@ class PostgresConcurrencyTests(unittest.TestCase):
                 except IntegrityError:db.session.rollback();return False
         with ThreadPoolExecutor(max_workers=8) as pool:self.assertEqual(sum(pool.map(attempt,range(8))),1)
         self.assertEqual(Credit.query.count(),1)
+
+    def test_checkout_reconciliation_cannot_overwrite_concurrent_payment(self):
+        from app import Payment,LeadOffer
+        from checkout_reconciliation import reconcile_payment
+        from unittest.mock import patch
+        from threading import Event
+        identifier=self.offer()
+        offer=db.session.get(LeadOffer,identifier);offer.status='accepted'
+        row=Payment(offer_id=identifier,contractor_id=self.contractor_id,
+            amount_cents=2500,currency='usd',price_id='synthetic',mode='test',
+            status='open',session_id='cs_postgres_synthetic',
+            quote_expires_at=datetime.now(timezone.utc)-timedelta(minutes=1))
+        db.session.add(row);db.session.commit();payment_id=row.id
+        obj={'id':row.session_id,'mode':'payment','livemode':False,'status':'open',
+             'payment_status':'unpaid','amount_total':2500,'currency':'usd',
+             'metadata':{'payment_id':str(payment_id),'contractor_id':str(self.contractor_id)}}
+        ready=Event();paid=Event()
+        def payment_callback():
+            if not ready.wait(10):raise RuntimeError('Reconciliation did not reach provider call.')
+            with app.app_context():
+                db.session.execute(update(Payment).where(Payment.id==payment_id).values(
+                    status='paid',paid_at=datetime.now(timezone.utc),payment_intent='pi_concurrent'))
+                db.session.commit()
+            paid.set()
+        def expire(*args,**kwargs):
+            ready.set()
+            if not paid.wait(10):raise RuntimeError('Payment callback did not commit.')
+            return {**obj,'status':'expired'}
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future=pool.submit(payment_callback)
+            with patch.dict(os.environ,{'STRIPE_MODE':'test'}),patch('billing.retrieve_checkout',return_value=obj),patch('billing.expire_checkout',side_effect=expire):
+                self.assertEqual(reconcile_payment(row,api_key='sk_test_synthetic'),'changed')
+                db.session.commit()
+            future.result()
+        db.session.expire_all();row=db.session.get(Payment,payment_id)
+        self.assertEqual(row.status,'paid');self.assertEqual(row.payment_intent,'pi_concurrent')
+
+    def test_quote_history_migration_preserves_legacy_order(self):
+        from app import Payment
+        identifier=self.offer()
+        row=Payment(offer_id=identifier,contractor_id=self.contractor_id,
+            amount_cents=2500,currency='usd',price_id='synthetic',mode='test',
+            status='open',session_id='cs_legacy_synthetic')
+        db.session.add(row);db.session.commit();payment_id=row.id
+        db.session.remove()
+        migration=Path(__file__).resolve().parents[1]/'migrations'/'019_checkout_quote_history.sql'
+        with db.engine.connect().execution_options(isolation_level='AUTOCOMMIT') as connection:
+            self.assertEqual(connection.execute(text('SELECT current_schema()')).scalar_one(),schema)
+            connection.execute(text('DROP TABLE checkout_quote_history'))
+            connection.execute(text('ALTER TABLE lead_payments DROP COLUMN quote_version'))
+            with connection.connection.cursor() as cursor:
+                cursor.execute(migration.read_text())
+                cursor.execute(migration.read_text())
+            preserved=connection.execute(text('SELECT amount_cents,session_id,status,mode,quote_version FROM lead_payments WHERE id=:id'),{'id':payment_id}).one()
+            self.assertEqual(tuple(preserved),(2500,'cs_legacy_synthetic','open','test',1))
+            self.assertEqual(connection.execute(text('SELECT COUNT(*) FROM checkout_quote_history')).scalar_one(),0)
 
     def test_all_additive_migrations_can_run_twice_in_isolated_schema(self):
         db.session.remove()

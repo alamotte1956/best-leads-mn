@@ -2,7 +2,7 @@
 import os
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
-from flask import Blueprint, abort, render_template, request, redirect
+from flask import Blueprint, abort, render_template, request, redirect, flash, url_for
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import update
 from operations import contractor_required
@@ -73,6 +73,11 @@ def retrieve_checkout(session_id,*,api_key):
     return stripe.StripeClient(api_key).v1.checkout.sessions.retrieve(session_id)
 
 
+def expire_checkout(session_id, *, api_key):
+    import stripe
+    return stripe.StripeClient(api_key).v1.checkout.sessions.expire(session_id)
+
+
 def billable_offer(contractor,offer_id):
     from app import db, Lead, LeadOffer
     from market_pricing import aware
@@ -96,7 +101,7 @@ def billable_offer(contractor,offer_id):
 @billing.get('/contractor/billing')
 @contractor_required
 def overview(contractor):
-    from app import Payment,LeadOffer,Lead
+    from app import Payment,LeadOffer,Lead,CheckoutQuoteHistory
     from market_pricing import aware
     payments=Payment.query.filter_by(contractor_id=contractor.id).order_by(Payment.id.desc()).limit(100).all()
     offers=LeadOffer.query.join(Lead,Lead.id==LeadOffer.lead_id).filter(
@@ -105,14 +110,18 @@ def overview(contractor):
     activation=payment_activation()
     paid_offers={row.offer_id for row in payments if row.status in ('paid','refunded')}
     offers=[row for row in offers if activation and row.accepted_at and aware(row.accepted_at)>=activation and row.id not in paid_offers]
-    return render_template('billing.html',payments=payments,offers=offers,
-        enabled=os.environ.get('PAYMENTS_ENABLED','').lower()=='true' and activation is not None)
+    history={}
+    for row in CheckoutQuoteHistory.query.filter_by(contractor_id=contractor.id).order_by(CheckoutQuoteHistory.id.desc()).limit(200).all():
+        history.setdefault(row.payment_id,[]).append(row)
+    return render_template('billing.html',payments=payments,offers=offers,quote_history=history,
+        enabled=os.environ.get('PAYMENTS_ENABLED','').lower()=='true' and activation is not None,
+        reconciliation_enabled=os.environ.get('CHECKOUT_RECONCILIATION_ENABLED','').lower()=='true')
 
 
 @billing.post('/contractor/offers/<int:offer_id>/quote')
 @contractor_required
 def market_quote(contractor,offer_id):
-    from app import db,Lead,Payment
+    from app import db,Lead,Payment,CheckoutQuoteHistory
     from market_pricing import current_benchmark,quote_from_benchmark,aware
     require_csrf()
     stripe_configuration()
@@ -123,16 +132,53 @@ def market_quote(contractor,offer_id):
             abort(409,'This order belongs to a different Stripe environment. It requires reconciliation.')
         if payment.status in ('paid','refunded'):
             abort(409,'This offer has already been paid.')
+        if payment.status not in ('quoted','creating','open','expired'):
+            abort(409,'This order is closed or awaiting confirmation. Its existing payment history must be reconciled before replacement.')
         if not payment.market_benchmark_id or not payment.quote_expires_at:
             abort(409,'This older order needs reconciliation before market pricing can be applied.')
-        if aware(payment.quote_expires_at)<=datetime.now(timezone.utc):
-            abort(409,'This quote has expired. Administration must reconcile any earlier checkout before it can be replaced.')
+        if aware(payment.quote_expires_at)<=datetime.now(timezone.utc) or payment.status=='expired':
+            if payment.paid_at or payment.payment_intent or payment.refunded_cents:
+                abort(409,'This order has payment activity. Preserve it for provider reconciliation.')
+            previous_status=payment.status
+            snapshot={name:getattr(payment,name) for name in (
+                'contractor_id','quote_version','amount_cents','currency','mode',
+                'market_benchmark_id','quote_expires_at','session_id')}
+            # Unlinked creating orders may have an in-flight provider request.
+            # Only a never-started quote or a verified expired session can retire.
+            if payment.status == 'quoted' and not payment.session_id:
+                retired_status='unused'
+            elif payment.status=='expired' and payment.session_id:
+                from checkout_reconciliation import validate_session
+                try:
+                    obj=validate_session(payment,retrieve_checkout(payment.session_id,api_key=stripe_configuration()[0]))
+                except ValueError:
+                    abort(409,'The earlier checkout could not be verified. Its payment history was preserved.')
+                if obj.get('status')!='expired' or obj.get('payment_status')!='unpaid':
+                    abort(409,'The earlier checkout is not confirmed expired. Its payment history was preserved.')
+                retired_status='expired'
+            else:
+                abort(409,'This quote has expired. Reconcile any earlier checkout before requesting a replacement.')
+            lead=db.session.get(Lead,offer.lead_id)
+            evidence=current_benchmark(lead)
+            amount,expires=quote_from_benchmark(evidence)
+            changed=db.session.execute(update(Payment).where(
+                Payment.id==payment.id,Payment.status==previous_status,
+                Payment.session_id==snapshot['session_id'],Payment.quote_version==snapshot['quote_version'],
+            ).values(amount_cents=amount,market_benchmark_id=evidence.id,
+                price_id=f'market:{evidence.id}',quote_expires_at=expires,
+                quote_version=snapshot['quote_version']+1,session_id=None,status='quoted'),
+                execution_options={'synchronize_session':False}).rowcount
+            if changed != 1:
+                db.session.rollback()
+                abort(409,'The quote changed in another session. Please refresh your payment history.')
+            db.session.add(CheckoutQuoteHistory(payment_id=payment.id,status=retired_status,**snapshot))
+            db.session.commit();db.session.refresh(payment)
     else:
         lead=db.session.get(Lead,offer.lead_id)
         evidence=current_benchmark(lead)
         amount,expires=quote_from_benchmark(evidence)
         payment=Payment(offer_id=offer_id,contractor_id=contractor.id,amount_cents=amount,currency='usd',mode=os.environ.get('STRIPE_MODE','test'),
-            price_id=f'market:{evidence.id}',market_benchmark_id=evidence.id,quote_expires_at=expires)
+            price_id=f'market:{evidence.id}',market_benchmark_id=evidence.id,quote_expires_at=expires,status='quoted')
         db.session.add(payment)
         try:
             db.session.commit()
@@ -156,8 +202,12 @@ def checkout(contractor,offer_id):
         abort(409,'Request a current market quote before starting checkout. Assigned prices are disabled.')
     if payment.mode != os.environ.get('STRIPE_MODE','test'):
         abort(409,'This order belongs to a different Stripe environment. It cannot be charged here.')
+    if request.form.get('quote_version','1') != str(payment.quote_version):
+        abort(409,'This quote was replaced. Review the current quote before paying.')
     if payment.status in ('paid','refunded'):
         abort(409,'This offer has already been paid.')
+    if payment.status not in ('quoted','creating','open'):
+        abort(409,'Checkout is unavailable or awaiting payment confirmation. Check payment history.')
     remaining=(aware(payment.quote_expires_at)-datetime.now(timezone.utc)).total_seconds()
     if remaining<=0:
         abort(409,'This quote has expired. It cannot be charged at the old price.')
@@ -168,6 +218,17 @@ def checkout(contractor,offer_id):
         return redirect(existing['url'],code=303)
     if remaining<30*60+30:
         abort(409,'Too little quote validity remains to start Stripe Checkout. Request reconciliation for a fresh quote.')
+    if payment.status == 'quoted':
+        changed=db.session.execute(update(Payment).where(
+            Payment.id==payment.id,Payment.status=='quoted',Payment.session_id.is_(None),
+            Payment.quote_expires_at==payment.quote_expires_at,Payment.quote_version==payment.quote_version,
+        ).values(status='creating')).rowcount
+        if changed != 1:
+            db.session.rollback()
+            abort(409,'Checkout changed in another session. Please check payment history.')
+        # Persist the attempt before any external call. A timeout/crash must
+        # never make this order look like a safely refreshable unused quote.
+        db.session.commit();db.session.refresh(payment)
     suffix=''.join(chr(97+value%26) for value in hashlib.sha256(str(payment.id).encode()).digest()[:8])
     created=create_checkout(api_key=key,mode='payment',
         line_items=[{'price_data':{'currency':'usd','unit_amount':payment.amount_cents,
@@ -176,21 +237,51 @@ def checkout(contractor,offer_id):
         integration_identifier='restoration-market-'+suffix,
         expires_at=int(aware(payment.quote_expires_at).timestamp()),
         metadata={'payment_id':str(payment.id),'contractor_id':str(contractor.id),
-                  'benchmark_id':str(payment.market_benchmark_id)},
+                  'benchmark_id':str(payment.market_benchmark_id),'quote_version':str(payment.quote_version)},
         success_url=origin+'/contractor/billing?returned=1',cancel_url=origin+'/contractor/billing',
-        idempotency_key=f'lead-payment:{payment.id}:v1')
+        idempotency_key=f'lead-payment:{payment.id}:v{payment.quote_version}')
     db.session.execute(update(Payment).where(Payment.id==payment.id,Payment.status=='creating',
         Payment.session_id.is_(None)).values(session_id=created['id'],status='open'))
     db.session.commit();db.session.refresh(payment)
-    if payment.status in ('paid','refunded'):
+    if payment.status != 'open' or payment.session_id != created['id']:
         return redirect('/contractor/billing',code=303)
     return redirect(created['url'],code=303)
+
+
+@billing.post('/contractor/payments/<int:payment_id>/reconcile')
+@contractor_required
+def reconcile_checkout(contractor, payment_id):
+    from app import db, Payment
+    from checkout_reconciliation import configuration, reconcile_payment
+    require_csrf()
+    payment=Payment.query.filter_by(id=payment_id,contractor_id=contractor.id).first()
+    if not payment:
+        abort(404)
+    key, mode=configuration()
+    if payment.mode != mode:
+        abort(409,'This order belongs to a different Stripe environment.')
+    try:
+        outcome=reconcile_payment(payment,api_key=key)
+        db.session.commit()
+    except ValueError:
+        db.session.rollback()
+        abort(409,'Checkout could not be verified. Its payment history was preserved.')
+    except Exception:
+        db.session.rollback()
+        raise
+    if outcome == 'expired':
+        flash('The hosted checkout has expired. No replacement or charge was created.', 'success')
+    elif outcome == 'unlinked':
+        flash('The earlier checkout attempt needs provider reconciliation before it can be replaced.', 'notice')
+    else:
+        flash('Checkout status checked. Payment still requires a verified payment notification.', 'notice')
+    return redirect(url_for('billing.overview'),code=303)
 
 
 @billing.post('/webhooks/stripe')
 def stripe_webhook():
     import stripe
-    from app import db, Payment, ProviderEvent, Contractor
+    from app import db, Payment, ProviderEvent, Contractor, CheckoutQuoteHistory
     from communications import queue_email
     secret = os.environ.get('STRIPE_WEBHOOK_SECRET','')
     if not secret:
@@ -202,7 +293,7 @@ def stripe_webhook():
     if bool(event.get('livemode')) != (os.environ.get('STRIPE_MODE','test')=='live'):
         abort(400,'Stripe mode mismatch.')
     kind = event['type'];obj = event['data']['object']
-    if kind not in ('checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','charge.refunded'):
+    if kind not in ('checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','checkout.session.expired','charge.refunded'):
         return '',204
     if db.session.get(ProviderEvent,event['id']):
         return '',204
@@ -218,6 +309,17 @@ def stripe_webhook():
         if kind.startswith('checkout.session.'):
             payment = Payment.query.filter_by(session_id=obj['id']).with_for_update().first()
             if not payment:
+                retired=CheckoutQuoteHistory.query.filter_by(session_id=obj['id']).first()
+                if retired:
+                    from checkout_reconciliation import validate_session
+                    try:
+                        validate_session(retired,{**obj,'livemode':event['livemode']})
+                    except ValueError:
+                        abort(400,'Retired checkout details do not match the original quote.')
+                    if kind!='checkout.session.expired' or obj.get('status')!='expired' or obj.get('payment_status')!='unpaid':
+                        abort(409,'An earlier retired checkout requires provider review.')
+                    db.session.commit()
+                    return '',204
                 # A signed callback can arrive before the session-create response.
                 reference=obj.get('metadata',{}).get('payment_id','')
                 if isinstance(reference,str) and reference.isdigit() and len(reference)<12:
@@ -227,10 +329,20 @@ def stripe_webhook():
             if (payment.mode != ('live' if event.get('livemode') else 'test') or obj.get('mode') != 'payment'
                 or obj.get('amount_total') != payment.amount_cents or obj.get('currency') != payment.currency
                 or obj.get('metadata',{}).get('payment_id') != str(payment.id)
-                or obj.get('metadata',{}).get('contractor_id') != str(payment.contractor_id)):
+                or obj.get('metadata',{}).get('contractor_id') != str(payment.contractor_id)
+                or obj.get('metadata',{}).get('quote_version','1') != str(payment.quote_version)):
                 abort(400,'Payment details do not match the stored order.')
             if payment.market_benchmark_id and obj.get('metadata',{}).get('benchmark_id')!=str(payment.market_benchmark_id):
                 abort(400,'Market quote does not match the order.')
+            if kind=='checkout.session.expired':
+                if obj.get('status') != 'expired' or obj.get('payment_status') != 'unpaid':
+                    abort(400,'Invalid checkout expiration state.')
+                if payment.status in ('creating','open'):
+                    db.session.execute(update(Payment).where(
+                        Payment.id==payment.id,Payment.status.in_(('creating','open')),
+                    ).values(session_id=obj['id'],status='expired'))
+                db.session.commit()
+                return '',204
             if kind=='checkout.session.async_payment_failed' or obj.get('payment_status')!='paid':
                 if payment.status not in ('paid','refunded'):
                     payment.session_id=obj['id']
