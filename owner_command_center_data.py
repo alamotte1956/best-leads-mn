@@ -154,13 +154,20 @@ def load_owner_dashboard_data(db, Lead, Contractor, LeadOffer):
             ),
         })
 
+    from app import Payment
+    today_payments = db.session.query(Payment).filter(
+        Payment.mode == 'live', Payment.currency == 'usd',
+        Payment.status.in_(('paid', 'refunded')),
+        Payment.paid_at >= start_utc, Payment.paid_at < end_utc,
+    ).all()
+
     metrics = {
         "leads_today": leads_today,
         "pending_offers": pending_offers,
         "accepted_offers": accepted_offers,
         "expired_offers": expired_offers,
-        "paid_today_cents": None,
-        "refunds_today_cents": None,
+        "paid_today_cents": sum(row.amount_cents for row in today_payments),
+        "refunds_today_cents": sum(row.refunded_cents for row in today_payments),
     }
 
     return {

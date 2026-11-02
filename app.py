@@ -1350,5 +1350,10 @@ def reconcile_checkouts_command(limit, after_id):
         raise click.ClickException('Checkout reconciliation is unavailable: '+type(error).__name__)
 
 
+from owner_finance import finance, define_owner_finance
+FinanceEntry, FinanceReview = define_owner_finance(db)
+app.register_blueprint(finance)
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
