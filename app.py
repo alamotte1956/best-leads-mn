@@ -62,6 +62,9 @@ from contractor_account_notifications import define_account_events
 ContractorAccountEvent = define_account_events(db)
 from consumer_requests import define_consumer_updates
 ConsumerRequestUpdate = define_consumer_updates(db)
+from account_recovery import define_recovery, recovery
+AccessRecoveryToken, AccessRecoveryAttempt = define_recovery(db)
+app.register_blueprint(recovery)
 from lead_lifecycle import define_lead_status_events
 LeadStatusEvent = define_lead_status_events(db)
 from service_requests import define_service_requests

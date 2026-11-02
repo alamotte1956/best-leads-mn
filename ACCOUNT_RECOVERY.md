@@ -1,0 +1,13 @@
+# Email access recovery
+
+Contractors can request a reset at `/contractor/forgot-password`, linked from sign in. Only currently approved, eligible accounts receive a link. Homeowners have no password: `/request-access` emails a private link for the latest request matching their email, linked from the empty request-status view.
+
+Both links expire in 20 minutes, are consumed only by a CSRF-protected confirmation POST, and work once. GET previews do not consume links. New issuance invalidates earlier links. Tokens are random, purpose-bound and stored by hash in the recovery table; the delivery queue necessarily contains the emailed bearer link until its normal retention cleanup. Responses use no-store/no-referrer/noindex headers. Email destinations, password/account changes, expiration and usage are rechecked before delivery and consumption. URLs use the fixed, connected Minnesota HTTPS origin rather than request headers.
+
+Password reset keeps account approval and credential checks, requires a 12–1024 character password with confirmation, revokes previous contractor sessions through the existing password fingerprint, invalidates outstanding administrator setup links and queues a change notice. It does not sign the user in automatically. Recovered homeowner access lasts seven days in that browser, is limited to its one request, and is invalidated by a change to the request email. A later new submission clears the earlier recovery binding.
+
+Unknown, ineligible, blocked-test-recipient and throttled requests receive the same acknowledgment. Hashed persistent rate-limit keys allow three requests per email/purpose and twenty per direct client address in fifteen minutes. PostgreSQL advisory locks serialize rate checks; subject locks and conditional token updates protect consumption. Only the server-observed client address is used, never an untrusted forwarded header. Deployments should review proxy topology before adjusting the client-wide limit.
+
+Apply additive migration `022_account_recovery.sql` before deploying these routes. It adds recovery token and attempt tables without changing customer rows. Keep the existing email test allowlist during owner testing. No SMS, payment or reward switch is enabled by recovery.
+
+Local verification: all 274 application tests passed, including ten recovery scenarios. CI includes an eight-client PostgreSQL consumption race, repeatable migrations, and synthetic browser password reset/sign-in and homeowner recovery. Browser mailboxes are confined to the explicitly gated localhost CI fixture and synthetic example.com records. No real user's password is changed by automated tests.
