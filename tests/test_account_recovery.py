@@ -15,6 +15,7 @@ from contractor_session_security import create_contractor_session_data,contracto
 class AccountRecoveryTests(unittest.TestCase):
     def setUp(self):
         self.env=patch.dict(os.environ,{'EMAIL_TEST_ONLY':'false','EMAIL_SENDING_ENABLED':'true',
+            'CONTRACTOR_LOGIN_LOCK_SECRET':'isolated-recovery-login-lock-secret-2026',
             'SMS_SENDING_ENABLED':'false','RESEND_API_KEY':'synthetic','RESEND_FROM_EMAIL':'sender@example.com'})
         self.env.start();self.ctx=app.app_context();self.ctx.push();db.drop_all();db.create_all()
         self.client=app.test_client()
@@ -69,6 +70,9 @@ class AccountRecoveryTests(unittest.TestCase):
         self.assertEqual(self.client.post(link,data=data).status_code,400)
         self.assertEqual(self.client.get(link).status_code,400)
         self.assertEqual(Delivery.query.filter_by(subject='Your contractor password was changed').count(),1)
+        login=self.client.post('/contractor/login',data={**self.csrf(),'email':'owner@example.com','password':'new-synthetic-password'})
+        self.assertTrue(login.headers['Location'].endswith('/contractor/dashboard'))
+        self.assertEqual(self.client.get('/contractor/dashboard').status_code,200)
 
     def test_csrf_and_password_validation_do_not_consume_token(self):
         self.issue();link=self.link()

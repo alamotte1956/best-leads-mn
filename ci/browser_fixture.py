@@ -15,6 +15,7 @@ fixture_directory=tempfile.TemporaryDirectory(prefix='rcusa-browser-fixture-')
 os.environ['DATABASE_URL']='sqlite:///'+str(Path(fixture_directory.name)/'browser.sqlite')
 os.environ['SECRET_KEY']='isolated-browser-checks-only'
 os.environ['ADMIN_PASSWORD_HASH']='isolated-browser-admin-checks'
+os.environ['CONTRACTOR_LOGIN_LOCK_SECRET']='isolated-browser-login-lock-secret-only-2026'
 os.environ['PAYMENTS_ACTIVATION_UTC']=''
 os.environ['EMAIL_TEST_ONLY']='false'
 for flag in ('EMAIL_SENDING_ENABLED','SMS_SENDING_ENABLED','PAYMENTS_ENABLED','ENABLE_LIVE_MATCHING','CHECKOUT_RECONCILIATION_ENABLED','STRIPE_LIVE_PAYMENTS_ENABLED'):
