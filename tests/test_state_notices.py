@@ -49,6 +49,7 @@ class StateNoticeTests(unittest.TestCase):
     def test_indiana_private_city_and_service_previews_include_its_own_notice(self):
         self.assertEqual(self.client.get('/admin/national/preview/indiana').status_code,403)
         self.admin()
+        self.assertIn('all 7 states',self.client.get('/admin/national').text)
         paths=['/admin/national/preview/indiana']
         paths += ['/admin/national/preview/indiana/'+city_slug(city) for city in STATES['indiana'][2]]
         paths += ['/admin/national/preview/indiana/services/'+service for service in (
