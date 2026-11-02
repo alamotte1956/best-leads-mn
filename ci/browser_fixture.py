@@ -3,16 +3,20 @@ import os
 import sys
 import time
 import hashlib
+import tempfile
 from pathlib import Path
 from datetime import datetime,timedelta,timezone
 if os.environ.get('CI')!='true' or os.environ.get('RCUSA_BROWSER_FIXTURE')!='1':
     raise RuntimeError('This disposable fixture runs only in an explicitly selected CI test workflow.')
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-os.environ['DATABASE_URL']='sqlite:///:memory:'
+# Each request gets its own connection to this disposable, local database.
+# A single-thread server can be held by WebKit's idle/preconnected sockets.
+fixture_directory=tempfile.TemporaryDirectory(prefix='rcusa-browser-fixture-')
+os.environ['DATABASE_URL']='sqlite:///'+str(Path(fixture_directory.name)/'browser.sqlite')
 os.environ['SECRET_KEY']='isolated-browser-checks-only'
 os.environ['ADMIN_PASSWORD_HASH']='isolated-browser-admin-checks'
 os.environ['PAYMENTS_ACTIVATION_UTC']=''
-for flag in ('EMAIL_SENDING_ENABLED','SMS_SENDING_ENABLED','PAYMENTS_ENABLED','ENABLE_LIVE_MATCHING'):
+for flag in ('EMAIL_SENDING_ENABLED','SMS_SENDING_ENABLED','PAYMENTS_ENABLED','ENABLE_LIVE_MATCHING','CHECKOUT_RECONCILIATION_ENABLED','STRIPE_LIVE_PAYMENTS_ENABLED'):
     os.environ[flag]='false'
 from app import app,db,Contractor,Lead,LeadOffer,MarketApplication,RewardIdentityApplication
 from flask import redirect,session
@@ -43,4 +47,4 @@ def contractor():
     session.clear();session.update(create_contractor_session_data(contractor_id))
     session['contractor_password_fingerprint']=hashlib.sha256(b'synthetic-hash').hexdigest()
     return redirect('/contractor/dashboard')
-app.run(host='127.0.0.1',port=5055,threaded=False)
+app.run(host='127.0.0.1',port=int(os.environ.get('RCUSA_BROWSER_PORT','5055')),threaded=True,use_reloader=False)

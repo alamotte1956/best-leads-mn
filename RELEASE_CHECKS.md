@@ -23,3 +23,7 @@ No live provider end-to-end tests, physical devices, production migrations or de
 First CI run: https://github.com/alamotte1956/best-leads-mn/actions/runs/41333049842. Pinned Python package versions match that run's successful installations.
 
 Current local continuation: CHECKOUT_RECONCILIATION.md. The current Python/JavaScript results apply locally; earlier 56-browser and six-PostgreSQL CI results apply to parent commit 250f5e9 only. No current-branch CI run or rendered browser validation is claimed.
+
+## PR #2 follow-up
+
+Run 41366990413 passed the application job and all eight PostgreSQL checks, including migration 019 and its preservation/race scenarios. Browser results: 54 passed, two WebKit timeouts. Trace analysis identified a local fixture server request waiting about 86 seconds. BROWSER_FIX_CHECKPOINT.md documents the correction and limits. The new local suite includes the idle-socket/concurrent-write regression and local photo tests; browser rerun is required after publishing the correction.

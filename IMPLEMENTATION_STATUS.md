@@ -48,3 +48,7 @@ GitHub evidence: [draft PR #1](https://github.com/alamotte1956/best-leads-mn/pul
 ## Current continuation checkpoint
 
 Local branch `feature/checkout-reconciliation` extends remote `feature/restoration-usa` at `250f5e9b4bea9e6f846fee4174f598eeb809f599`. GitHub branch creation again returned HTTP 403; HTTPS git publishing has no authenticated credential in this environment. The continuation is therefore not yet in draft PR #1. Railway read-only inspection confirmed the web and matching-worker services still track main. Web has a Resend key by name but no configured sender/enable/webhook variables or Stripe runtime variable names. The USA domain is not listed on the inspected web service. No staging environment was listed. No settings, schema, data or deployments were changed.
+
+## Latest published and local follow-up
+
+The owner successfully published checkout commit 0f16bff as draft PR #2 targeting feature/restoration-usa. Its application and eight PostgreSQL checks passed; two of 56 browser scenarios timed out in WebKit. A disposable test-server concurrency correction and optimized local service imagery are prepared next; see BROWSER_FIX_CHECKPOINT.md. A synthetic unpaid Stripe test session was created/retrieved and matched the session validator, but real runtime credentials, successful payment/webhook/refund and independent expiration checks remain unverified. No production change or merge was performed. Earlier publication-blocked paragraphs describe earlier checkpoints.
