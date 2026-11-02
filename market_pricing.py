@@ -53,7 +53,9 @@ def quote_from_benchmark(row,now=None):
 
 
 def current_benchmark(lead,now=None):
-    from app import MarketBenchmark
+    from app import MarketBenchmark, BenchmarkMatchType
+    from lead_choice import match_limit
+    from sqlalchemy import func
     now=now or datetime.now(timezone.utc)
     today_start=datetime.combine(now.astimezone(MARKET_ZONE).date(),time.min,MARKET_ZONE).astimezone(timezone.utc)
     from national_coverage import lead_state
@@ -61,7 +63,8 @@ def current_benchmark(lead,now=None):
     state = lead_state(lead)
     if not code_enabled(state):
         abort(503, 'This state has not been approved for launch.')
-    row=MarketBenchmark.query.filter(MarketBenchmark.state_code==state,
+    row=MarketBenchmark.query.outerjoin(BenchmarkMatchType,BenchmarkMatchType.benchmark_id==MarketBenchmark.id).filter(
+        func.coalesce(BenchmarkMatchType.contractor_limit,1)==match_limit(lead),MarketBenchmark.state_code==state,
         MarketBenchmark.service_name==lead.service_needed,MarketBenchmark.zip_code==lead.zip_code,
         MarketBenchmark.observed_at>=today_start,MarketBenchmark.observed_at<=now
     ).order_by(MarketBenchmark.observed_at.desc(),MarketBenchmark.id.desc()).first()
@@ -73,7 +76,8 @@ def current_benchmark(lead,now=None):
 def refresh_benchmarks():
     """Trusted server collector only. No public page scraping or client prices."""
     from flask import current_app
-    from app import db, MarketBenchmark
+    from app import db, MarketBenchmark, BenchmarkMatchType
+    from lead_choice import parse_choice
     collector=current_app.config.get('MARKET_BENCHMARK_COLLECTOR')
     if not callable(collector):
         raise RuntimeError('An authorized Angi/Thumbtack data collector is not configured.')
@@ -83,6 +87,8 @@ def refresh_benchmarks():
     count=0
     try:
         for data in collector():
+            data=dict(data)
+            limit=parse_choice(data.pop('contractor_limit',None))
             row=MarketBenchmark(**data)
             if row.state_code not in states or row.service_name not in SERVICES or not row.zip_code.isdigit() or len(row.zip_code)!=5:
                 raise ValueError('Market scope does not match the supported catalog.')
@@ -91,7 +97,8 @@ def refresh_benchmarks():
                 raise ValueError('A stable observation import key is required.')
             if db.session.execute(select(MarketBenchmark.id).where(MarketBenchmark.import_key==row.import_key)).first():
                 continue
-            db.session.add(row);count+=1
+            db.session.add(row);db.session.flush()
+            db.session.add(BenchmarkMatchType(benchmark_id=row.id,contractor_limit=limit));count+=1
         db.session.commit()
     except Exception:
         db.session.rollback();raise

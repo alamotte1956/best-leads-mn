@@ -593,8 +593,10 @@ def signup():
 
 @app.route("/request-received")
 def homeowner_request_received():
-    from consumer_requests import PRIVATE_HEADERS
-    return render_template("request_received.html"), 200, PRIVATE_HEADERS
+    from consumer_requests import PRIVATE_HEADERS, owned_request
+    from lead_choice import match_limit, description
+    lead=owned_request()
+    return render_template("request_received.html",match_description=description(match_limit(lead)) if lead else None), 200, PRIVATE_HEADERS
 
 
 @app.route("/api/leads", methods=["POST"])
@@ -642,6 +644,12 @@ def submit_lead():
         if service not in SERVICES:
             return submission_error('Choose a listed restoration service.')
 
+    from lead_choice import parse_choice
+    try:
+        contractor_limit = parse_choice(data.get('contractor_limit'))
+    except ValueError as error:
+        return submission_error(str(error))
+
     if not name or not valid_phone(phone) or not valid_zip(zip_code) or not service:
         return submission_error("Please enter your name, a valid phone number, a five-digit ZIP code, and the service you need.")
     if email and not valid_email(email):
@@ -657,6 +665,7 @@ def submit_lead():
         )
         db.session.add(lead)
         db.session.flush()
+        db.session.add(LeadMatchPreference(lead_id=lead.id, contractor_limit=contractor_limit))
         from national_markets import usa_hostname
         hostname=request.host.split(':',1)[0].lower()
         intake_brand='USA' if usa_hostname(request.host) else 'MN' if hostname in ('restorationcontractorsmn.com','www.restorationcontractorsmn.com') or state_code=='MN' else 'USA'
@@ -897,6 +906,13 @@ def terms():
         When a lead offer has a displayed acceptance deadline, it may
         expire if not accepted in time. The planned sequential matching
         process uses a 15-minute acceptance window.</p>
+        <p>Homeowners can request one contractor or up to three contractors.
+        A single-contractor request can be accepted by no more than one contractor
+        through this platform. A shared request can be accepted by up to three.
+        Contractors see the request type before accepting or paying. Contact
+        access remains subject to approval and any applicable verified-payment
+        requirement. A request does not guarantee that the selected number of
+        contractors will be available, respond, provide estimates or perform work.</p>
         <p>Contractors may voluntarily enroll in operational SMS
         notifications through an unchecked-by-default consent checkbox.
         SMS consent is not required to register or use our services.
@@ -1041,6 +1057,7 @@ def contractor_dashboard():
     )
 
     offers = []
+    from lead_choice import offer_description
     from billing import offer_contact_available
 
     for offer, lead in rows:
@@ -1048,6 +1065,7 @@ def contractor_dashboard():
             "id": offer.id,
             "lead_id": offer.lead_id,
             "service_needed": lead.service_needed,
+            "match_description": offer_description(offer),
             "zip_code": lead.zip_code,
             "status": offer.status,
             "expires_at": offer.expires_at.replace(tzinfo=timezone.utc) if offer.expires_at.tzinfo is None else offer.expires_at,
@@ -1349,6 +1367,10 @@ def reconcile_checkouts_command(limit, after_id):
         db.session.rollback()
         raise click.ClickException('Checkout reconciliation is unavailable: '+type(error).__name__)
 
+
+from lead_choice import define_lead_choice, offer_description
+LeadMatchPreference, BenchmarkMatchType = define_lead_choice(db)
+app.jinja_env.globals['offer_match_description'] = offer_description
 
 from owner_finance import finance, define_owner_finance
 FinanceEntry, FinanceReview = define_owner_finance(db)

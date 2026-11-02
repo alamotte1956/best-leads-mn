@@ -1,4 +1,5 @@
 from sqlalchemy import text
+from lead_choice import CAPACITY_SQL
 
 
 ACCEPT_OFFER_SQL = text("""
@@ -12,7 +13,7 @@ ACCEPT_OFFER_SQL = text("""
        AND offered_at <= clock_timestamp()
        AND accepted_at IS NULL
        AND EXISTS (SELECT 1 FROM leads WHERE leads.id = lead_offers.lead_id AND leads.status = 'New')
-       AND NOT EXISTS (SELECT 1 FROM lead_offers other WHERE other.lead_id = lead_offers.lead_id AND other.status = 'accepted')
+""" + CAPACITY_SQL + """
     RETURNING id, lead_id, contractor_id, accepted_at
 """)
 
@@ -81,4 +82,6 @@ def accept_contractor_offer(session, offer_id, contractor_id):
     if result is None:
         return None
 
+    from lead_choice import close_filled_slots
+    close_filled_slots(session,result['lead_id'])
     return dict(result)

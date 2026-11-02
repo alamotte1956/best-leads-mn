@@ -1,0 +1,6 @@
+<label for="contractor-limit">How many contractors would you like to hear from?</label>
+<select id="contractor-limit" name="contractor_limit" required aria-describedby="contractor-limit-help">
+<option value="1" {% if request.form.get('contractor_limit','1')=='1' %}selected{% endif %}>One contractor — single-contractor request</option>
+<option value="3" {% if request.form.get('contractor_limit')=='3' %}selected{% endif %}>Up to three contractors — compare your options</option>
+</select>
+<p id="contractor-limit-help" class="field-hint">One: no more than one contractor can accept this platform request. Up to three: your contact details may be shared with up to three accepting contractors. They will see whether this is a single-contractor or shared lead. Availability and response times are not guaranteed.</p>

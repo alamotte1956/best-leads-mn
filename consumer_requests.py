@@ -66,24 +66,37 @@ def request_status(lead):
     offers = LeadOffer.query.filter_by(lead_id=lead.id,status='accepted').order_by(LeadOffer.id.desc()).limit(2).all()
     if not offers:
         return 'pending', None, None
-    if len(offers) != 1:
+    from lead_choice import match_limit
+    limit=match_limit(lead)
+    all_offers=LeadOffer.query.filter_by(lead_id=lead.id,status='accepted').order_by(LeadOffer.id).limit(4).all()
+    if len(all_offers)>limit or len({o.contractor_id for o in all_offers}) != len(all_offers):
         return 'needs_review', None, None
-    offer = offers[0]
-    contractor = db.session.get(Contractor, offer.contractor_id)
+    offers=all_offers
     from national_coverage import market_eligible
-    if (not contractor or not contractor.active or not contractor.verified or contractor.is_test
-            or not contractor.credential_review_current or not market_eligible(contractor,lead)):
-        return 'needs_review', None, None
-    return 'accepted', contractor, offer
+    for candidate in offers:
+        contractor=db.session.get(Contractor,candidate.contractor_id)
+        if (not contractor or not contractor.active or not contractor.verified or contractor.is_test
+                or not contractor.credential_review_current or not market_eligible(contractor,lead)):
+            return 'needs_review',None,None
+    offer=offers[0]
+    return 'accepted',db.session.get(Contractor,offer.contractor_id),offer
 
 
 @consumer_requests.get('/request-status')
 def status():
     from contact_links import mailto_address
+    from lead_choice import match_limit, description
+    from app import db, Contractor, LeadOffer
     lead = owned_request()
     state, contractor, offer = request_status(lead) if lead else (None,None,None)
     phone_digits = re.sub(r'[^0-9]','',contractor.phone or '') if contractor else ''
-    return render_template('request_status.html',lead=lead,state=state,
+    matches=[]
+    if state=='accepted':
+        for accepted in LeadOffer.query.filter_by(lead_id=lead.id,status='accepted').order_by(LeadOffer.id).all():
+            business=db.session.get(Contractor,accepted.contractor_id)
+            matches.append(dict(contractor=business,phone_digits=re.sub(r'[^0-9]','',business.phone or ''),contractor_mailto=mailto_address(business.email)))
+    return render_template('request_status.html',lead=lead,state=state,matches=matches,
+        match_description=description(match_limit(lead)) if lead else None,
         status_copy=STATUS_COPY.get(state),contractor=contractor,phone_digits=phone_digits,
         contractor_mailto=mailto_address(contractor.email) if contractor else None),200,PRIVATE_HEADERS
 
@@ -131,6 +144,10 @@ def queue_request_update(lead, state, offer_id=None):
         raise ValueError('Unsupported consumer status notification.')
     if not lead.email:
         return None
+    if state=='accepted':
+        existing=ConsumerRequestUpdate.query.filter_by(lead_id=lead.id,status='accepted').first()
+        if existing:
+            return db.session.get(Delivery,existing.delivery_id)
     previous = select(ConsumerRequestUpdate.delivery_id).where(ConsumerRequestUpdate.lead_id == lead.id)
     db.session.execute(update(Delivery).where(Delivery.id.in_(previous),Delivery.status=='pending').values(status='cancelled'))
     title, message = STATUS_COPY[state]
@@ -158,4 +175,7 @@ def request_update_current(delivery, event):
             or canonical_email(lead.email) != canonical_email(delivery.recipient)):
         return False
     state, contractor, offer = request_status(lead)
-    return state == event.status and (state != 'accepted' or offer.id == event.offer_id)
+    if state!=event.status:return False
+    if state!='accepted':return True
+    from app import LeadOffer
+    return LeadOffer.query.filter_by(id=event.offer_id,lead_id=lead.id,status='accepted').first() is not None

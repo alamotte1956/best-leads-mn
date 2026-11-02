@@ -29,9 +29,16 @@ def create_offers_for_lead(
     offered_at = offered_at.astimezone(timezone.utc)
     expires_at = offered_at + timedelta(minutes=15)
 
+    from lead_choice import match_limit
+    capacity = match_limit(lead, db_session)
+    existing_slots = db_session.query(lead_offer_model.contractor_id).filter(
+        lead_offer_model.lead_id == lead.id,
+        lead_offer_model.status.in_(('pending','accepted'))).distinct().count()
     created = []
 
     for contractor in contractors:
+        if existing_slots + len(created) >= capacity:
+            break
         services = additional_services_by_contractor.get(
             contractor.id, []
         )
@@ -94,8 +101,9 @@ def create_next_sequential_offer(
         lead_offer_model.lead_id == lead.id
     ).all()
 
-    # An accepted offer permanently ends sequential matching.
-    if any(row.status == "accepted" for row in previous_offers):
+    from lead_choice import match_limit
+    accepted_ids = {row.contractor_id for row in previous_offers if row.status == "accepted"}
+    if len(accepted_ids) >= match_limit(lead, db_session):
         return None
 
     # A pending offer blocks another offer, even if its deadline

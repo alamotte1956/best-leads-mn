@@ -41,7 +41,7 @@
         h2 { font-size: 29px; margin-top: 0; }
         p { line-height: 1.7; }
         label { display: block; font-weight: bold; margin: 14px 0 6px; }
-        input, textarea { width: 100%; padding: 12px; border: 1px solid #b9c5d2; border-radius: 6px; font: inherit; }
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #b9c5d2; border-radius: 6px; font: inherit; }
         textarea { min-height: 105px; resize: vertical; }
         .note { font-size: 13px; color: #526276; }
         .services { padding: 30px 0 60px; }
@@ -101,6 +101,7 @@
             <p>{{ page.request_tip }}</p>
             <form action="{{ url_for('submit_lead') }}" method="POST">
                 <input type="hidden" name="state" value="MN">
+                {% include 'partials/homeowner_contractor_choice.html' %}
                 <label for="name">Full Name</label>
                 <input id="name" name="name" autocomplete="name" maxlength="100" required>
 
