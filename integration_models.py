@@ -24,6 +24,7 @@ def define_integrations(db):
         price_id = db.Column(db.String(150), nullable=False)  # Historical field; new values identify market evidence.
         market_benchmark_id = db.Column(db.Integer, db.ForeignKey('market_lead_benchmarks.id'))
         quote_expires_at = db.Column(db.DateTime(timezone=True))
+        quote_version = db.Column(db.Integer, nullable=False, default=1, server_default='1')
         session_id = db.Column(db.String(150), unique=True)
         payment_intent = db.Column(db.String(150), unique=True)
         status = db.Column(db.String(30), nullable=False, default='creating')

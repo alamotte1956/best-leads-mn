@@ -4,9 +4,12 @@ Preserves existing Contractor and Lead database columns.
 This version does NOT send SMS or assign leads automatically.
 """
 import os
+import mimetypes
+mimetypes.add_type('image/webp', '.webp')
 import re
 import secrets
 import logging
+import click
 from datetime import datetime, timezone
 
 from flask import (
@@ -50,6 +53,8 @@ from market_pricing import define_benchmark
 MarketBenchmark = define_benchmark(db)
 from integration_models import define_integrations
 Delivery, Payment, ProviderEvent, LeadPrice = define_integrations(db)
+from checkout_reconciliation import define_checkout_history
+CheckoutQuoteHistory = define_checkout_history(db)
 from email_delivery import define_email_tracking, email_delivery
 ResendEvent, EmailSuppression = define_email_tracking(db)
 app.register_blueprint(email_delivery)
@@ -1215,16 +1220,16 @@ def owner_command_center():
 from restoration_landing_pages import LANDING_PAGES
 
 LANDING_PHOTOS = {
-    "water-damage": "photo-1581578731548-c64695cc6952",
-    "storm-hail-damage": "photo-1500673922987-e212871fec22",
-    "roof-repair": "photo-1635424710928-0544e8512eae",
-    "basement-flooding": "photo-1523413651479-597eb2da0ad6",
-    "mold-remediation": "photo-1584622650111-993a426fbf0a",
-    "fire-smoke-damage": "photo-1487958449943-2429e8be8625",
-    "sewer-backup": "photo-1504307651254-35680f356dfd",
-    "frozen-pipes": "photo-1457269449834-928af64c684d",
-    "siding-repair": "photo-1600596542815-ffad4c1539a9",
-    "emergency-tarping": "photo-1500530855697-b586d89ba3ee",
+    "water-damage": "water-damage-restoration",
+    "storm-hail-damage": "storm-damage-restoration",
+    "roof-repair": "roofing-repair",
+    "basement-flooding": "water-damage-restoration",
+    "mold-remediation": "mold-remediation",
+    "fire-smoke-damage": "fire-smoke-damage-restoration",
+    "sewer-backup": "water-damage-restoration",
+    "frozen-pipes": "water-damage-restoration",
+    "siding-repair": "roofing-repair",
+    "emergency-tarping": "storm-damage-restoration",
 }
 
 @app.route("/services/<slug>", methods=["GET"])
@@ -1234,12 +1239,7 @@ def restoration_service_page(slug):
     if page is None:
         abort(404)
 
-    photo_id = LANDING_PHOTOS[slug]
-    photo = (
-        "https://images.unsplash.com/"
-        + photo_id
-        + "?auto=format&fit=crop&w=1600&q=85"
-    )
+    photo = url_for('static', filename='images/services/' + LANDING_PHOTOS[slug] + '.webp')
 
     return render_template(
         "restoration_service.html",
@@ -1311,6 +1311,21 @@ def browser_error(error):
                           title=error.name, message=error.description))
         response.content_type = "text/html; charset=utf-8"
     return response
+
+
+
+@app.cli.command('reconcile-checkouts')
+@click.option('--limit', default=100, type=click.IntRange(1,500))
+@click.option('--after-id', default=0, type=click.IntRange(min=0))
+def reconcile_checkouts_command(limit, after_id):
+    """Inspect/expire existing checkouts; never create a checkout or confirm payment."""
+    from checkout_reconciliation import reconcile_batch
+    try:
+        click.echo(reconcile_batch(limit=limit,after_id=after_id))
+    except Exception as error:
+        db.session.rollback()
+        raise click.ClickException('Checkout reconciliation is unavailable: '+type(error).__name__)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
