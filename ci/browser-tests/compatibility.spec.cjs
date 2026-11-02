@@ -2,7 +2,8 @@ const {test,expect}=require('@playwright/test');
 const STATE_SERVICES=['water-damage','fire-smoke-damage','mold-remediation','storm-hail-damage','roof-repair'];
 const PUBLIC=['/','/signup','/contractor/login','/admin/login','/privacy','/terms','/sms-policy',
   ...STATE_SERVICES.map(s=>'/usa/minnesota/services/'+s),
-  '/usa','/usa/minnesota','/usa/minnesota/twin-cities','/request-status','/request-received','/request-access','/contractor/forgot-password',
+  '/usa','/usa/minnesota','/usa/minnesota/twin-cities','/request-status','/request-received','/request-access','/contractor/forgot-password','/state-notices',
+  ...['minnesota','texas','florida','north-carolina','georgia','wisconsin','indiana'].map(s=>'/state-notices/'+s),
   ...['water-damage','storm-hail-damage','roof-repair','basement-flooding','mold-remediation',
     'fire-smoke-damage','sewer-backup','frozen-pipes','siding-repair','emergency-tarping'].map(s=>'/services/'+s)];
 const ADMIN=['/admin/finance','/admin','/admin/national','/admin/owner-command-center','/admin/leads/1',
@@ -12,7 +13,7 @@ const ADMIN=['/admin/finance','/admin','/admin/national','/admin/owner-command-c
   '/admin/national/applications','/admin/national/applications/1',
   ...['texas/dallas-fort-worth','texas/houston','florida/tampa-st-petersburg','florida/orlando',
     'florida/jacksonville','north-carolina/charlotte','north-carolina/raleigh-durham','georgia/atlanta-suburbs',
-    'wisconsin/western-wisconsin','wisconsin/milwaukee','wisconsin/madison'].map(s=>'/admin/national/preview/'+s)];
+    'wisconsin/western-wisconsin','wisconsin/milwaukee','wisconsin/madison','indiana/indianapolis','indiana/fort-wayne','indiana/northwest-indiana'].map(s=>'/admin/national/preview/'+s)];
 const CONTRACTOR=['/contractor/dashboard','/contractor/settings','/contractor/markets',
   '/contractor/notifications','/contractor/leads','/contractor/offers/1/follow-up','/contractor/billing',
   '/contractor/rewards','/contractor/services/request'];
@@ -35,7 +36,7 @@ for(const width of [320,768,1440]){
   });
 }
 test('disabled markets and real rewards stay closed',async({page})=>{
-  for(const state of ['texas','florida','north-carolina','georgia','wisconsin']){
+  for(const state of ['texas','florida','north-carolina','georgia','wisconsin','indiana']){
     expect((await page.request.get('/usa/'+state)).status()).toBe(404);
     for(const service of STATE_SERVICES)expect((await page.request.get('/usa/'+state+'/services/'+service)).status()).toBe(404);
     expect((await page.request.get('/usa/'+state+'/request')).status()).toBe(404);
@@ -59,7 +60,7 @@ test('homeowner can submit and track a request without JavaScript',async({browse
 });
 
 // Keep each state's new preview routes bounded independently of the operating-page test.
-for(const state of ['minnesota','texas','florida','north-carolina','georgia','wisconsin']){
+for(const state of ['minnesota','texas','florida','north-carolina','georgia','wisconsin','indiana']){
   test('service previews for '+state,async({page})=>{
     await page.goto('/__ci/admin');
     for(const width of [320,768,1440]){

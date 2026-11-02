@@ -26,7 +26,7 @@ def define_location_review(db):
         private_notes=db.Column(db.Text,nullable=False)
         reviewed_at=db.Column(db.DateTime(timezone=True),nullable=False,default=db.func.now())
         __table_args__=(db.CheckConstraint("decision in ('approved','unavailable')"),
-                       db.CheckConstraint("state_code in ('MN','TX','FL','NC','GA','WI')"))
+                       db.CheckConstraint("state_code in ('MN','TX','FL','NC','GA','WI','IN')"))
     return LeadLocationReview
 
 

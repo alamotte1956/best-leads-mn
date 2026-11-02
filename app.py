@@ -65,6 +65,8 @@ ConsumerRequestUpdate = define_consumer_updates(db)
 from account_recovery import define_recovery, recovery
 AccessRecoveryToken, AccessRecoveryAttempt = define_recovery(db)
 app.register_blueprint(recovery)
+from state_notices import state_notices
+app.register_blueprint(state_notices)
 from lead_lifecycle import define_lead_status_events
 LeadStatusEvent = define_lead_status_events(db)
 from service_requests import define_service_requests
@@ -827,7 +829,7 @@ color:#243342;line-height:1.65}a{color:#1768a0}h1,h2{line-height:1.2}
 .notice{padding:14px;background:#ffffff;border:1px solid #dce5ee;border-left:4px solid #1768a0;border-radius:8px;box-shadow:0 3px 12px rgba(16,37,62,.05)}
 </style>
 """
-LEGAL_HEADER = "{% include 'partials/brand_header.html' %}\n" + '<p><a href="/">Home</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/sms-policy">SMS Policy</a></p>'
+LEGAL_HEADER = "{% include 'partials/brand_header.html' %}\n" + '<p><a href="/">Home</a> | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a> | <a href="/sms-policy">SMS Policy</a> | <a href="/state-notices">State notices</a></p>'
 
 
 
@@ -850,10 +852,11 @@ def privacy():
         <p>We use submitted information to respond to requests, evaluate contractor
         applications, operate our service, prevent abuse and maintain records.</p>
         <h2>Sharing</h2>
-        <p>Information may be shared with a selected participating contractor for
-        the purpose of responding to your request, and with service providers that
-        support hosting, communications and operations. We do not claim to sell
-        your request to multiple contractors.</p>
+        <p>Depending on your selection, relevant request and contact information may
+        be shared with one or up to three participating contractors who accept your
+        request, subject to eligibility and applicable contact-access requirements.
+        Contractors may pay us for lead access. Information is also shared with
+        service providers supporting hosting, communications and operations.</p>
         <h2>Text messaging</h2>
         <p>SMS notifications will be offered only where the required consent and
         messaging arrangements are in place. Consent to marketing messages is not
@@ -885,7 +888,7 @@ def privacy():
         <p>We use administrative and technical safeguards, but no system is
         completely secure. To request access, correction or deletion, use the
         contact information published on our website.</p>
-        <p><em>Last updated: October 27, 2026.</em></p></body></html>
+        <p><em>Last updated: November 2, 2026.</em></p></body></html>
         """
     )
 
@@ -931,8 +934,12 @@ def terms():
         agreements and warranties before hiring.</p>
         <h2>Requests</h2>
         <p>By submitting a request, you authorize us to use the supplied details
-        to process your request and share relevant information with a selected
-        contractor for that purpose, subject to the Privacy Policy.</p>
+        to process your request and share relevant information with one or up to
+        three accepting contractors, according to your selection and the Privacy Policy.</p>
+        <h2>State-specific protections</h2>
+        <p>Review the <a href="/state-notices">information for your property’s state</a>.
+        Platform use does not waive non-waivable statutory rights or replace
+        contractor licensing, required contract notices, permits or cancellation rights.</p>
         <h2>No emergency dispatch guarantee</h2>
         <p>The website is not an emergency response service and does not guarantee
         a particular response time. For an immediate threat to life or safety,
@@ -940,7 +947,7 @@ def terms():
         <h2>Communications</h2>
         <p>Where SMS is offered, message frequency may vary, message and data rates
         may apply, and users can reply STOP to opt out or HELP for assistance.</p>
-        <p><em>Last updated: October 27, 2026.</em></p></body></html>
+        <p><em>Last updated: November 2, 2026.</em></p></body></html>
         """
     )
 
