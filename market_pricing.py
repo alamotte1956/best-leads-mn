@@ -29,7 +29,7 @@ def aware(value):
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 
-def quote_from_benchmark(row,now=None):
+def validate_benchmark(row,now=None):
     now=now or datetime.now(timezone.utc)
     observed=aware(row.observed_at)
     if observed > now or observed.astimezone(MARKET_ZONE).date() != now.astimezone(MARKET_ZONE).date():
@@ -39,7 +39,13 @@ def quote_from_benchmark(row,now=None):
             or not row.angi_reference.strip() or not row.thumbtack_reference.strip()
             or row.comparison_basis != 'comparable_contractor_lead_fee'):
         abort(503,'Comparable contractor lead-fee evidence is required.')
+    return min(row.angi_cents,row.thumbtack_cents)*85//100
+
+
+def quote_from_benchmark(row,now=None):
+    now=now or datetime.now(timezone.utc)
     # Round down: the platform price never exceeds 85% of either observation.
+    validate_benchmark(row,now)
     amount=min(row.angi_cents,row.thumbtack_cents)*85//100
     if amount < 1:
         abort(503,'The observed fee cannot produce a payable quote.')
@@ -76,26 +82,42 @@ def current_benchmark(lead,now=None):
 def refresh_benchmarks():
     """Trusted server collector only. No public page scraping or client prices."""
     from flask import current_app
-    from app import db, MarketBenchmark, BenchmarkMatchType
-    from lead_choice import parse_choice
     collector=current_app.config.get('MARKET_BENCHMARK_COLLECTOR')
     if not callable(collector):
         raise RuntimeError('An authorized Angi/Thumbtack data collector is not configured.')
+    return import_benchmark_records(collector())
+
+
+def import_benchmark_records(records,now=None):
+    """Atomically import authorized observations, retaining immutable evidence."""
+    from app import db, MarketBenchmark, BenchmarkMatchType
+    from lead_choice import parse_choice
+    now=now or datetime.now(timezone.utc)
     from service_catalog import SERVICES
     from national_markets import STATES
     states={row[0] for row in STATES.values()}
     count=0
     try:
-        for data in collector():
+        for data in records:
             data=dict(data)
             limit=parse_choice(data.pop('contractor_limit',None))
             row=MarketBenchmark(**data)
             if row.state_code not in states or row.service_name not in SERVICES or not row.zip_code.isdigit() or len(row.zip_code)!=5:
                 raise ValueError('Market scope does not match the supported catalog.')
-            quote_from_benchmark(row)
+            validate_benchmark(row,now)
+            if min(row.angi_cents,row.thumbtack_cents)*85//100 < 1:
+                raise ValueError('The observed fee cannot produce a payable quote.')
             if not row.import_key or len(row.import_key)>150:
                 raise ValueError('A stable observation import key is required.')
-            if db.session.execute(select(MarketBenchmark.id).where(MarketBenchmark.import_key==row.import_key)).first():
+            previous=db.session.execute(select(MarketBenchmark).where(MarketBenchmark.import_key==row.import_key)).scalar_one_or_none()
+            if previous:
+                prior_type=db.session.get(BenchmarkMatchType,previous.id)
+                fields=('state_code','service_name','zip_code','angi_cents','thumbtack_cents',
+                        'angi_reference','thumbtack_reference','comparison_basis')
+                if (any(getattr(previous,key)!=getattr(row,key) for key in fields)
+                        or aware(previous.observed_at)!=aware(row.observed_at)
+                        or (prior_type.contractor_limit if prior_type else 1)!=limit):
+                    raise ValueError('An import key already identifies different evidence. Historical evidence cannot be overwritten.')
                 continue
             db.session.add(row);db.session.flush()
             db.session.add(BenchmarkMatchType(benchmark_id=row.id,contractor_limit=limit));count+=1
