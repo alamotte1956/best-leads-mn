@@ -96,6 +96,27 @@ class PostgresConcurrencyTests(unittest.TestCase):
                 db.session.commit();return result is not None
         with ThreadPoolExecutor(max_workers=8) as pool:self.assertEqual(sum(pool.map(attempt,range(8))),1)
 
+    def test_test_worker_matches_only_designated_pair_and_keeps_other_pending_offer(self):
+        from unittest.mock import patch
+        from app import Contractor, Lead, LeadOffer
+        from scheduled_matching_worker import process_matching_batch
+        contractor=db.session.get(Contractor,self.contractor_id)
+        lead=db.session.get(Lead,self.lead_id)
+        contractor.email='contractor@example.com'; lead.email='consumer@example.com'
+        private=Lead(homeowner_name='Unrelated',email='private@example.com',phone='6125550198',
+            zip_code='55401',service_needed='Mold Remediation',status='New')
+        db.session.add(private);db.session.flush()
+        old=LeadOffer(lead_id=private.id,contractor_id=contractor.id,status='pending',
+            offered_at=datetime.now(timezone.utc)-timedelta(hours=2),
+            expires_at=datetime.now(timezone.utc)-timedelta(hours=1))
+        db.session.add(old);db.session.commit()
+        with patch.dict(os.environ,{'ENABLE_LIVE_MATCHING':'YES','MATCHING_ACTIVATION_UTC':'2020-01-01T00:00:00Z',
+                'EMAIL_TEST_ONLY':'true','EMAIL_TEST_RECIPIENTS':'consumer@example.com,contractor@example.com'}):
+            result=process_matching_batch()
+            self.assertEqual((result['processed'],result['created'],result['failed']),(1,1,0))
+        db.session.refresh(old);self.assertEqual(old.status,'pending')
+        self.assertEqual(LeadOffer.query.filter_by(lead_id=lead.id,status='pending').count(),1)
+
     def test_shared_request_concurrent_acceptance_never_exceeds_three(self):
         from app import Contractor, LeadOffer, LeadMatchPreference
         db.session.add(LeadMatchPreference(lead_id=self.lead_id,contractor_limit=3))
