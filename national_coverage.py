@@ -113,6 +113,11 @@ def approved_coverage(contractor_id, state_code, today=None):
 def market_eligible(contractor, lead):
     if contractor is None or lead is None:
         return False
+    # During owner testing, neither side may be an unrelated customer.
+    # Reuse the fail-closed email allowlist; never substitute email addresses.
+    from communications import email_recipient_allowed
+    if not (email_recipient_allowed(contractor.email) and email_recipient_allowed(lead.email)):
+        return False
     if (contractor.active is not True or contractor.verified is not True or contractor.is_test is not False
             or not getattr(contractor,'credential_review_current',True)):
         return False

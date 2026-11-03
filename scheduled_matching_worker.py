@@ -40,7 +40,7 @@ def process_matching_batch():
     )
 
     with app.app_context():
-        leads = (
+        leads_query = (
             db.session.query(Lead)
             .filter(
                 Lead.submitted_at.isnot(None),
@@ -48,9 +48,13 @@ def process_matching_batch():
                 Lead.status == "New",
 
             )
-            .order_by(Lead.id)
-            .all()
         )
+        from communications import email_test_settings
+        testing, allowed = email_test_settings()
+        if testing:
+            # Filter before expiration/advancement so unrelated leads are untouched.
+            leads_query = leads_query.filter(func.lower(func.trim(Lead.email)).in_(allowed))
+        leads = leads_query.order_by(Lead.id).all()
 
         processed = 0
         created = 0
@@ -71,9 +75,10 @@ def process_matching_batch():
                         Contractor.verified.is_(True),
                         Contractor.is_test.is_(False),
                     )
-                    .order_by(Contractor.id)
-                    .all()
                 )
+                if testing:
+                    contractors = contractors.filter(func.lower(func.trim(Contractor.email)).in_(allowed))
+                contractors = contractors.order_by(Contractor.id).all()
 
                 services = (
                     db.session.query(ContractorService)
