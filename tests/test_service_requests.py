@@ -136,7 +136,7 @@ class ServiceRequestTests(unittest.TestCase):
 
     def test_csrf_and_administrator_gates_cannot_be_bypassed(self):
         self.assertEqual(self.client.get('/contractor/services/request').status_code,302)
-        self.assertEqual(self.client.get('/admin/service-requests').status_code,403)
+        self.assertEqual(self.client.get('/admin/service-requests').status_code,302)
         self.owner()
         self.assertEqual(self.client.post('/contractor/services/request',data={'service_name':'Fire Damage Restoration'}).status_code,400)
         self.submit();row=ServiceRequest.query.one();self.admin()

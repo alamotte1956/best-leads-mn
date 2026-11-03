@@ -144,7 +144,7 @@ class EmailDeliveryTests(unittest.TestCase):
 
     def test_admin_tracking_is_protected_and_secrets_hidden(self):
         self.post('email.complained')
-        self.assertEqual(self.client.get('/admin/integrations').status_code, 403)
+        self.assertEqual(self.client.get('/admin/integrations').status_code, 302)
         from admin_session_security import current_password_fingerprint
         with self.client.session_transaction() as state:
             state.update(admin_authenticated=True, admin_login_at=time.time()-1,

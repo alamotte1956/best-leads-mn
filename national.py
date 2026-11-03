@@ -19,10 +19,8 @@ def private_admin_pages(response):
 def administrator(fn):
     @wraps(fn)
     def guarded(*args, **kwargs):
-        at = session.get('admin_login_at')
-        if (not session.get('admin_authenticated') or isinstance(at, bool)
-                or not isinstance(at, (int, float)) or not 0 <= time.time() - at <= 3600
-                or not session_password_valid(session.get('admin_password_fingerprint'))):
+        from admin_session_security import admin_session_valid
+        if not admin_session_valid(session):
             abort(403)
         return fn(*args, **kwargs)
     return guarded

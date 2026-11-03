@@ -72,5 +72,5 @@ class OwnerFinanceTests(unittest.TestCase):
         response=self.client.get('/admin/finance/export.csv?start=2026-11-01&end=2026-11-30')
         rows=list(csv.reader(io.StringIO(response.text)));self.assertTrue(any(cell.startswith("'=HYPERLINK") for row in rows for cell in row));self.assertIn('no-store',response.headers['Cache-Control'])
         with self.client.session_transaction() as s:s.clear()
-        self.assertEqual(self.client.get('/admin/finance').status_code,403);self.assertEqual(self.client.get('/admin/finance/export.csv').status_code,403)
+        self.assertEqual(self.client.get('/admin/finance').status_code,302);self.assertEqual(self.client.get('/admin/finance/export.csv').status_code,302)
         self.assertEqual(self.entry().status_code,403)

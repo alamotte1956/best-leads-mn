@@ -1,8 +1,18 @@
 """Authentication helpers for the administrative dashboard."""
 
 import os
+import hmac
 
 from werkzeug.security import check_password_hash
+
+
+def owner_email():
+    return os.environ.get('ADMIN_OWNER_EMAIL','').strip().lower()
+
+
+def verify_admin_email(email):
+    configured=owner_email()
+    return not configured or hmac.compare_digest(configured.encode(),(email or '').strip().lower().encode())
 
 
 def admin_auth_configured():

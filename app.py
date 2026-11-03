@@ -180,6 +180,15 @@ def csrf_token():
 app.jinja_env.globals["csrf_token"] = csrf_token
 
 
+@app.context_processor
+def master_admin_context():
+    from admin_auth import owner_email
+    from admin_session_security import admin_session_valid
+    is_admin_page=request.path=='/admin' or request.path.startswith('/admin/')
+    active=is_admin_page and admin_session_valid(session)
+    return dict(master_admin_active=active,master_admin_email=owner_email() if active else '')
+
+
 @app.after_request
 def protect_account_pages(response):
     if request.path.startswith(('/contractor/', '/admin')):
@@ -265,7 +274,11 @@ def admin_login():
     from admin_auth import (
         admin_auth_configured,
         verify_admin_password,
+        verify_admin_email,
+        owner_email,
     )
+    from admin_session_security import safe_admin_destination
+    destination=safe_admin_destination(request.form.get('next','') if request.method=='POST' else request.args.get('next',''))
 
     if not admin_auth_configured():
         return ("Administrator login is not configured.", 503)
@@ -308,7 +321,8 @@ def admin_login():
 
         password = request.form.get("password", "")
 
-        if verify_admin_password(password):
+        password_matches=verify_admin_password(password)
+        if password_matches and verify_admin_email(request.form.get('email','')):
             clear_failures(db, AdminLoginAttempt, identifier)
             db.session.commit()
             session.clear()
@@ -317,6 +331,8 @@ def admin_login():
             )
 
             session["admin_authenticated"] = True
+            session['admin_email']=owner_email()
+            session['admin_role']='master_admin'
             session["admin_login_at"] = datetime.now(
                 timezone.utc
             ).timestamp()
@@ -324,19 +340,20 @@ def admin_login():
                 current_password_fingerprint()
             )
             session.permanent = True
-            return redirect(url_for("admin_dashboard"))
+            return redirect(destination)
 
         record_failure(db, AdminLoginAttempt, identifier)
         db.session.commit()
 
         return render_template(
             "admin_login.html",
-            error="Incorrect administrator password.",
+            error="Incorrect administrator credentials.",owner_email_required=bool(owner_email()),destination=destination,
         ), 401
 
     return render_template(
         "admin_login.html",
         error=None,
+        owner_email_required=bool(owner_email()),destination=destination,
     )
 
 
@@ -1244,6 +1261,13 @@ def owner_command_center():
         **data,
     )
 
+
+@app.get('/admin/access')
+@administrator
+def master_admin_access():
+    from national_markets import STATES
+    return render_template('admin_access.html',states=STATES)
+
 # RESTORATION_SERVICE_LANDING_ROUTES_V1
 from restoration_landing_pages import LANDING_PAGES
 
@@ -1376,8 +1400,24 @@ def browser_error(error):
         response.set_data(app.json.dumps({"status": "error", "message": error.description}))
         response.content_type = "application/json"
     else:
+        admin_access_required=(error.code==403 and
+            (request.path=='/admin' or request.path.startswith('/admin/')))
+        title='Administrator sign-in required' if admin_access_required else error.name
+        message=error.description
+        if admin_access_required:
+            message=('This area requires a current administrator session. Sign in on this website to continue. '
+                     'Administrator sessions expire after one hour, and a password reset ends older sessions. '
+                     'A contractor sign-in does not provide administrator access.')
+            if request.method not in ('GET','HEAD'):
+                message+=' After signing in, reopen the page and review the form before submitting it again.'
+            else:
+                from admin_session_security import admin_session_valid,safe_admin_destination
+                if not admin_session_valid(session):
+                    target=safe_admin_destination(request.full_path.rstrip('?'))
+                    return redirect(url_for('admin_login',next=target))
         response.set_data(render_template("error.html", code=error.code,
-                          title=error.name, message=error.description))
+                          title=title, message=message,
+                          admin_access_required=admin_access_required))
         response.content_type = "text/html; charset=utf-8"
     return response
 

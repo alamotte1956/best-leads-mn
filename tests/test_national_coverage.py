@@ -70,7 +70,7 @@ class NationalCoverageTests(unittest.TestCase):
             self.assertIn('MINNESOTA PROPERTY RESTORATION',page);self.assertIn('rcmn-logo-tm.png',page)
 
     def test_private_previews_cover_every_catalog_market_and_city(self):
-        self.assertEqual(self.client.get('/admin/national/preview/texas').status_code,403)
+        self.assertEqual(self.client.get('/admin/national/preview/texas').status_code,302)
         self.admin()
         descriptions=set()
         for slug, info in STATES.items():
@@ -185,7 +185,7 @@ class NationalCoverageTests(unittest.TestCase):
             zip_codes='55401',active=True,verified=True,is_test=False,password_hash='synthetic-hash')
         db.session.add(other);db.session.commit();self.contractor=other;self.owner()
         self.assertNotIn('OWNER NOTES',self.client.get('/contractor/markets').text)
-        self.assertEqual(self.client.get(f'/admin/national/applications/{row.id}').status_code,403)
+        self.assertEqual(self.client.get(f'/admin/national/applications/{row.id}').status_code,302)
 
     def test_review_and_notification_are_one_transaction(self):
         row=self.application();self.admin()

@@ -104,7 +104,7 @@ class LeadProgressTests(unittest.TestCase):
     def test_admin_inspection_is_read_only_and_notes_are_escaped(self):
         self.save(note='<script>private-report</script>')
         path=f'/admin/offers/{self.offer.id}/follow-up'
-        self.assertEqual(self.client.get(path).status_code,403)
+        self.assertEqual(self.client.get(path).status_code,302)
         self.admin();page=self.client.get(path)
         self.assertEqual(page.status_code,200)
         self.assertIn('Read-only administrator view',page.text)

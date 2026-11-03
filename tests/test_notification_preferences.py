@@ -152,7 +152,7 @@ class NotificationPreferenceTests(unittest.TestCase):
     def test_administrator_inspection_is_read_only_and_owner_scoped(self):
         self.client.post('/contractor/notifications',data=self.data())
         path=f'/admin/contractors/{self.contractor.id}/notifications'
-        self.assertEqual(self.client.get(path).status_code,403)
+        self.assertEqual(self.client.get(path).status_code,302)
         from admin_session_security import current_password_fingerprint
         with self.client.session_transaction() as state:
             state.clear();state.update(admin_authenticated=True,admin_login_at=time.time()-1,
