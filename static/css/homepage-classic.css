@@ -39,3 +39,5 @@ body.homepage-classic{background:#0f1c2d;color:#f8fafc}
 .homepage-classic .site-footer{border-top:1px solid #344b63;background:#0b1726}
 @media(max-width:800px){.homepage-classic .hero{padding:48px 22px}.homepage-classic .hero h1{letter-spacing:-1px}.homepage-classic .classic-services{gap:12px 20px}.homepage-classic .platform-advantages{width:calc(100% - 32px);margin-bottom:36px}.homepage-classic .request-layout{border-left:0;border-right:0}.homepage-classic .state-notice{width:calc(100% - 32px)}}
 @media(max-width:420px){.homepage-classic .hero-actions{flex-direction:column}.homepage-classic .hero-actions .button{width:100%}.homepage-classic .classic-services a{font-size:13px}}
+
+.homepage-classic .request-layout>div>p a{color:#ffb57f}
