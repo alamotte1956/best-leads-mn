@@ -1,0 +1,41 @@
+/* Restore the original navy/orange homepage presentation; keep shared flows intact. */
+body.homepage-classic{background:#0f1c2d;color:#f8fafc}
+.homepage-classic .site-header{background:#f8fafc;border-color:#d8e1e8}
+.homepage-classic .classic-services{display:flex;justify-content:center;flex-wrap:wrap;gap:12px 28px;padding:15px 24px;background:#14283e;border-bottom:1px solid #30465d}
+.homepage-classic .classic-services a{color:#e2e8f0;text-decoration:none;font-size:14px;font-weight:650}
+.homepage-classic .classic-services a:hover{color:#ffab70}
+.homepage-classic .hero{display:block;max-width:none;padding:76px 24px 64px;text-align:center;background:linear-gradient(125deg,#102b46,#19466a);border-bottom:1px solid #35536d}
+.homepage-classic .hero-copy{max-width:1050px;margin:auto}
+.homepage-classic .hero .eyebrow{color:#ffb57f;letter-spacing:2px;line-height:1.7}
+.homepage-classic .hero h1{max-width:1000px;margin:20px auto 24px;font-size:clamp(34px,5vw,64px);font-weight:850;line-height:1.12;letter-spacing:-1.8px;color:#fff}
+.homepage-classic .hero h1 span{color:#ff9c55}
+.homepage-classic .hero .lead{max-width:740px;margin:0 auto 28px;color:#e2e8f0;font-size:clamp(17px,2vw,22px)}
+.homepage-classic .hero-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:14px;margin:0 0 22px}
+.homepage-classic .hero-actions .button{min-width:190px;padding:16px 28px}
+.homepage-classic .classic-outline{border:2px solid #dbeafe;background:transparent;color:#fff}
+.homepage-classic .classic-outline:hover{background:#ffffff12}
+.homepage-classic .hero .small{color:#d1deeb}
+.homepage-classic .hero-facts{justify-content:center;margin-top:26px}
+.homepage-classic .hero-facts span{background:#ffffff08;border-color:#7492ad;color:#eef4fa}
+.homepage-classic .section .eyebrow,.homepage-classic .advantages-eyebrow{color:#ffb57f}
+.homepage-classic .section-heading{margin:0 auto 36px;text-align:center}
+.homepage-classic .step-card{padding:26px;border:1px solid #344b63;border-radius:14px;background:#172c42}
+.homepage-classic .step-card p,.homepage-classic .request-layout>div>p,.homepage-classic .faq p{color:#c6d4e3}
+.homepage-classic .step-number{color:#ffb57f}
+.homepage-classic .platform-advantages{width:calc(100% - 48px);max-width:1160px;margin:20px auto 56px;background:#14283e;border-color:#344b63;border-top-color:#f58232;color:#f8fafc}
+.homepage-classic .advantages-grid article{background:#1b334c;border-color:#3c536c}
+.homepage-classic .platform-advantages p{color:#c6d4e3}
+.homepage-classic .request-layout{background:#14283e;border:1px solid #344b63}
+.homepage-classic .form-card{color:#192f44;background:#fff;box-shadow:0 18px 48px #0003}
+.homepage-classic .notice{color:#192f44}
+.homepage-classic .soft{background:transparent}
+.homepage-classic .service-card{background:#172c42;border-color:#344b63;color:#f8fafc}
+.homepage-classic .service-card:hover{border-color:#f58232;background:#1b334c}
+.homepage-classic .service-card h3 span{color:#ffb57f}
+.homepage-classic .service-card p{color:#c6d4e3}
+.homepage-classic .faq details{border-color:#344b63}
+.homepage-classic .faq a{color:#ffb57f}
+.homepage-classic .state-notice{max-width:1160px;width:calc(100% - 48px);margin:32px auto!important}
+.homepage-classic .site-footer{border-top:1px solid #344b63;background:#0b1726}
+@media(max-width:800px){.homepage-classic .hero{padding:48px 22px}.homepage-classic .hero h1{letter-spacing:-1px}.homepage-classic .classic-services{gap:12px 20px}.homepage-classic .platform-advantages{width:calc(100% - 32px);margin-bottom:36px}.homepage-classic .request-layout{border-left:0;border-right:0}.homepage-classic .state-notice{width:calc(100% - 32px)}}
+@media(max-width:420px){.homepage-classic .hero-actions{flex-direction:column}.homepage-classic .hero-actions .button{width:100%}.homepage-classic .classic-services a{font-size:13px}}
