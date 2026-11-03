@@ -265,6 +265,69 @@ class PostgresConcurrencyTests(unittest.TestCase):
         self.assertEqual(BenchmarkMatchType.query.one().contractor_limit,3)
         self.assertEqual(BenchmarkMatchType.query.one().benchmark_id,MarketBenchmark.query.one().id)
 
+    def test_quickbooks_callback_replay_and_refresh_are_serialized(self):
+        import hashlib,time
+        from unittest.mock import patch
+        from cryptography.fernet import Fernet
+        from app import QuickBooksConnection,QuickBooksOAuthAttempt
+        from admin_session_security import current_password_fingerprint
+        import quickbooks_client as provider
+        env={'QBO_ENABLED':'true','QBO_ENVIRONMENT':'sandbox','QBO_CLIENT_ID':'synthetic-ci-qbo',
+             'QBO_CLIENT_SECRET':'synthetic-ci-secret','QBO_TOKEN_KEY':Fernet.generate_key().decode(),'ADMIN_PASSWORD_HASH':'synthetic-ci-owner'}
+        with patch.dict(os.environ,env):
+            state='synthetic-shared-qbo-state';nonce='synthetic-shared-browser'
+            db.session.add(QuickBooksOAuthAttempt(state_hash=hashlib.sha256(state.encode()).hexdigest(),browser_hash=hashlib.sha256(nonce.encode()).hexdigest(),
+                admin_fingerprint=current_password_fingerprint(),client_binding=provider.binding(),environment='sandbox',expires_at=datetime.now(timezone.utc)+timedelta(minutes=10)))
+            db.session.commit()
+            def finish(_):
+                with app.test_client() as browser:
+                    with browser.session_transaction() as session:
+                        session.update(admin_authenticated=True,admin_login_at=time.time(),admin_password_fingerprint=current_password_fingerprint(),qbo_browser_nonce=nonce)
+                    return browser.get('/admin/quickbooks/callback',query_string={'state':state,'code':'synthetic-ci-code','realmId':'93410001'}).status_code
+            reply={'access_token':'synthetic-access','refresh_token':'synthetic-refresh','expires_in':3600,'x_refresh_token_expires_in':86400}
+            with patch.object(provider,'token_request',return_value=reply) as token,patch.object(provider,'raw_api',return_value={'CompanyInfo':{'Id':'1','CompanyName':'Synthetic sandbox'}}):
+                with ThreadPoolExecutor(max_workers=8) as pool:results=list(pool.map(finish,range(8)))
+                self.assertEqual(results.count(303),1);self.assertEqual(results.count(400),7);self.assertEqual(token.call_count,1)
+            self.assertEqual(QuickBooksConnection.query.count(),1)
+            row=QuickBooksConnection.query.one();tokens=provider.unseal(row.encrypted_tokens);tokens['access_expires']=time.time()-1;row.encrypted_tokens=provider.seal(tokens);db.session.commit();connection_id=row.id
+            def read(_):
+                with app.app_context():
+                    try:return provider.api(connection_id,'/preferences',expected_realm='93410001')=={'synthetic':True}
+                    finally:db.session.remove()
+            with patch.object(provider,'token_request',return_value=reply) as token,patch.object(provider,'raw_api',return_value={'synthetic':True}):
+                with ThreadPoolExecutor(max_workers=8) as pool:self.assertTrue(all(pool.map(read,range(8))))
+                self.assertEqual(token.call_count,1)
+
+    def test_quickbooks_concurrent_expense_export_sends_once(self):
+        import time,copy
+        from unittest.mock import patch
+        from cryptography.fernet import Fernet
+        from app import QuickBooksConnection,QuickBooksExport,FinanceEntry
+        from admin_session_security import current_password_fingerprint
+        from quickbooks import source_hash
+        import quickbooks_client as provider
+        env={'QBO_ENABLED':'true','QBO_ENVIRONMENT':'sandbox','QBO_CLIENT_ID':'synthetic-ci-qbo','QBO_CLIENT_SECRET':'synthetic-ci-secret','QBO_TOKEN_KEY':Fernet.generate_key().decode(),'ADMIN_PASSWORD_HASH':'synthetic-ci-owner'}
+        with patch.dict(os.environ,env):
+            connection=QuickBooksConnection(environment='sandbox',realm_id='93410001',company_name='Synthetic sandbox',client_binding=provider.binding(),encrypted_tokens=provider.seal({'access_token':'synthetic-access','refresh_token':'synthetic-refresh','access_expires':time.time()+3600,'refresh_expires':time.time()+86400}),status='connected',confirmed_at=datetime.now(timezone.utc))
+            entry=FinanceEntry(entry_key='synthetic-concurrent-qbo-expense',occurred_on=datetime.now(timezone.utc).date(),kind='expense',category='Hosting',description='Synthetic hosting',amount_cents=2525,mode='test')
+            db.session.add_all([connection,entry]);db.session.commit();entry_id=entry.id;fingerprint=source_hash(entry)
+            def raw(mode,realm,token,path,params=None,payload=None):
+                if path=='/query':return {'QueryResponse':{'Account':[{'Id':'10','Name':'Hosting','AccountType':'Expense'},{'Id':'20','Name':'Bank','AccountType':'Bank'}]}}
+                if path=='/preferences':return {'Preferences':{'CurrencyPrefs':{'HomeCurrency':{'value':'USD'}}}}
+                if path=='/purchase':return {'Purchase':dict(copy.deepcopy(payload),Id='81')}
+                raise AssertionError(path)
+            def send(_):
+                with app.test_client() as browser:
+                    with browser.session_transaction() as session:session.update(admin_authenticated=True,admin_login_at=time.time(),admin_password_fingerprint=current_password_fingerprint(),_csrf='synthetic-qbo-csrf')
+                    return browser.post(f'/admin/quickbooks/expenses/{entry_id}/export',data={'_csrf':'synthetic-qbo-csrf','source_hash':fingerprint,'expense_account':'10','funding_account':'20','confirm_export':'yes'}).status_code
+            with patch.object(provider,'raw_api',side_effect=raw) as api:
+                with ThreadPoolExecutor(max_workers=8) as pool:results=list(pool.map(send,range(8)))
+                self.assertTrue(all(status in (303,409) for status in results),results)
+                self.assertEqual(len([call for call in api.call_args_list if call.args[3]=='/purchase']),1)
+            self.assertEqual(QuickBooksExport.query.count(),1);self.assertEqual(QuickBooksExport.query.one().status,'sent')
+            from apply_quickbooks_schema import main
+            main();main();self.assertEqual(FinanceEntry.query.count(),1);self.assertEqual(QuickBooksExport.query.count(),1)
+
     def test_all_additive_migrations_can_run_twice_in_isolated_schema(self):
         db.session.remove()
         with db.engine.connect().execution_options(isolation_level='AUTOCOMMIT') as connection:

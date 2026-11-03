@@ -1443,6 +1443,10 @@ app.jinja_env.globals['offer_match_description'] = offer_description
 from owner_finance import finance, define_owner_finance
 FinanceEntry, FinanceReview = define_owner_finance(db)
 app.register_blueprint(finance)
+from quickbooks_models import define_quickbooks
+QuickBooksConnection, QuickBooksOAuthAttempt, QuickBooksExport = define_quickbooks(db)
+from quickbooks import quickbooks
+app.register_blueprint(quickbooks)
 
 
 if __name__ == "__main__":
