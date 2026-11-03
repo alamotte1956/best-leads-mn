@@ -145,3 +145,51 @@ class AccountRecoveryTests(unittest.TestCase):
             response=self.client.get(path)
             self.assertIn('no-store',response.headers['Cache-Control'])
             self.assertEqual(response.headers['Referrer-Policy'],'no-referrer')
+
+    def test_approved_contractor_can_create_first_password_without_administrator(self):
+        self.contractor.password_hash=None;db.session.commit()
+        self.issue();link=self.link()
+        page=self.client.get('/contractor/login').text
+        self.assertIn('Create your password',page);self.assertIn('Forgot password?',page)
+        self.assertNotIn(link,self.client.get('/contractor/forgot-password').text)
+        response=self.client.post(link,data={**self.csrf(),'password':'contractor-first-password','confirm_password':'contractor-first-password'})
+        self.assertEqual(response.status_code,303)
+        db.session.refresh(self.contractor)
+        self.assertTrue(verify_contractor_password(self.contractor.password_hash,'contractor-first-password'))
+        login=self.client.post('/contractor/login',data={**self.csrf(),'email':'owner@example.com','password':'contractor-first-password'})
+        self.assertTrue(login.headers['Location'].endswith('/contractor/dashboard'))
+
+    def test_admin_controls_are_absent_and_valid_legacy_links_cannot_set_passwords(self):
+        import time
+        from admin_session_security import current_password_fingerprint
+        with patch.dict(os.environ,{'ADMIN_PASSWORD_HASH':'synthetic-self-service-admin'}):
+            with self.client.session_transaction() as state:
+                state.update(admin_authenticated=True,admin_login_at=time.time()-1,
+                    admin_password_fingerprint=current_password_fingerprint(),_csrf='recovery-test')
+            page=self.client.get('/admin');self.assertEqual(page.status_code,200)
+            self.assertNotIn('Create password setup link',page.text)
+            self.assertNotIn('/password-setup',page.text)
+            self.assertEqual(self.client.post(f'/admin/contractors/{self.contractor.id}/password-setup',data=self.csrf()).status_code,404)
+        original=self.contractor.password_hash
+        raw='synthetic-legacy-password-link'
+        old=ContractorPasswordSetupToken(contractor_id=self.contractor.id,token_hash=hashlib.sha256(raw.encode()).hexdigest(),expires_at=datetime.now(timezone.utc)+timedelta(hours=1))
+        db.session.add(old);db.session.commit()
+        for method in ('get','post'):
+            response=getattr(self.client,method)('/contractor/password-setup/'+raw,
+                **({'data':{**self.csrf(),'password':'admin-chosen-password','confirm_password':'admin-chosen-password'}} if method=='post' else {}))
+            self.assertEqual(response.status_code,410)
+            self.assertNotIn('type="password"',response.text)
+            self.assertIn('/contractor/forgot-password',response.text)
+            self.assertIn('no-store',response.headers['Cache-Control'])
+        db.session.refresh(self.contractor);self.assertEqual(self.contractor.password_hash,original)
+        self.assertEqual(ContractorPasswordSetupToken.query.count(),1)
+
+    def test_pending_approval_email_uses_current_contractor_owned_password_instructions(self):
+        from contractor_account_notifications import queue_account_notice
+        event=queue_account_notice(self.contractor,'approved');db.session.commit()
+        notice=db.session.get(Delivery,event.delivery_id)
+        notice.body='Otherwise, our team will provide your private password setup link.';db.session.commit()
+        with patch('communications.resend_email',return_value='synthetic-current-instructions') as send:
+            self.assertEqual(deliver_pending()['sent'],1)
+            self.assertIn('https://www.restorationcontractorsmn.com/contractor/forgot-password',send.call_args.args[0].body)
+            self.assertNotIn('our team will provide',send.call_args.args[0].body)

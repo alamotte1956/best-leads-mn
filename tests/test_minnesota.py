@@ -31,15 +31,18 @@ class MinnesotaFlows(unittest.TestCase):
             s['contractor_password_fingerprint'] = hashlib.sha256(self.contractor.password_hash.encode()).hexdigest()
             s['_csrf'] = 'csrf-test'
     def setup_link(self):
-        self.admin()
-        r = self.client.post(f'/admin/contractors/{self.contractor.id}/password-setup', data={'_csrf':'csrf-test'})
-        self.assertEqual(r.status_code, 200)
-        return re.search(r'href="(/contractor/password-setup/[^"]+)"', r.text).group(1)
+        from app import AccessRecoveryToken, Delivery
+        with self.client.session_transaction() as state: state['_csrf']='csrf-test'
+        r = self.client.post('/contractor/forgot-password',data={'_csrf':'csrf-test','email':'owner@example.com'})
+        self.assertEqual(r.status_code,303)
+        token=AccessRecoveryToken.query.order_by(AccessRecoveryToken.id.desc()).first()
+        body=db.session.get(Delivery,token.delivery_id).body
+        return re.search(r'https://www\.restorationcontractorsmn\.com([^\s]+)',body).group(1)
     def test_setup_login_reuse_and_reset_revocation(self):
         self.contractor_session()
         link = self.setup_link()
         r = self.client.post(link, data={'_csrf':'csrf-test','password':'replacement-password','confirm_password':'replacement-password'})
-        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r.status_code, 303)
         self.assertEqual(self.client.post(link, data={'_csrf':'csrf-test','password':'replacement-password','confirm_password':'replacement-password'}).status_code, 400)
         r = self.client.post('/contractor/login', data={'_csrf':'csrf-test','email':'owner@example.com','password':'replacement-password'})
         self.assertEqual(r.status_code, 302)
@@ -51,7 +54,8 @@ class MinnesotaFlows(unittest.TestCase):
         first = self.setup_link(); second = self.setup_link()
         self.assertEqual(self.client.post(first, data={'_csrf':'csrf-test','password':'replacement-password','confirm_password':'replacement-password'}).status_code, 400)
         self.assertEqual(self.client.post(second, data={'password':'replacement-password'}).status_code, 400)
-        row = ContractorPasswordSetupToken.query.order_by(ContractorPasswordSetupToken.id.desc()).first()
+        from app import AccessRecoveryToken
+        row = AccessRecoveryToken.query.order_by(AccessRecoveryToken.id.desc()).first()
         row.expires_at = datetime.now(timezone.utc)-timedelta(minutes=1); db.session.commit()
         self.assertEqual(self.client.post(second, data={'_csrf':'csrf-test','password':'replacement-password','confirm_password':'replacement-password'}).status_code, 400)
     def test_admin_password_change_blocks_owner_report(self):
@@ -237,7 +241,7 @@ class MinnesotaFlows(unittest.TestCase):
         from restoration_landing_pages import LANDING_PAGES
         from restoration_landing_legacy import PAGES
         self.admin(); self.contractor_session()
-        routes=['/','/signup','/contractor-signup','/contractors/apply','/request-received','/privacy','/terms','/sms-policy','/admin/login','/contractor/login','/contractor/dashboard','/admin','/admin/national','/admin/owner-command-center','/usa','/usa/minnesota','/usa/minnesota/twin-cities','/contractor/password-setup/preview']
+        routes=['/','/signup','/contractor-signup','/contractors/apply','/request-received','/privacy','/terms','/sms-policy','/admin/login','/contractor/login','/contractor/dashboard','/admin','/admin/national','/admin/owner-command-center','/usa','/usa/minnesota','/usa/minnesota/twin-cities','/contractor/forgot-password']
         routes += ['/services/'+slug for slug in LANDING_PAGES]
         routes += ['/'+slug for slug in PAGES]
         for route in routes:
