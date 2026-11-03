@@ -8,3 +8,4 @@ stripe==16.1.0
 tzdata==2026.6
 psycopg[binary]==3.3.6
 
+cryptography==50.0.2

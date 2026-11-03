@@ -6,7 +6,7 @@ const PUBLIC=['/','/signup','/contractor/login','/admin/login','/privacy','/term
   ...['minnesota','texas','florida','north-carolina','georgia','wisconsin','indiana'].map(s=>'/state-notices/'+s),
   ...['water-damage','storm-hail-damage','roof-repair','basement-flooding','mold-remediation',
     'fire-smoke-damage','sewer-backup','frozen-pipes','siding-repair','emergency-tarping'].map(s=>'/services/'+s)];
-const ADMIN=['/admin/finance','/admin','/admin/national','/admin/owner-command-center','/admin/leads/1',
+const ADMIN=['/admin/quickbooks','/admin/access','/admin/finance','/admin','/admin/national','/admin/owner-command-center','/admin/leads/1',
   '/admin/leads/1/location',
   '/admin/contractors/1/verification','/admin/contractors/1/notifications','/admin/service-requests',
   '/admin/integrations','/admin/pricing','/admin/rewards','/admin/rewards/identity/1',
