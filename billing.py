@@ -10,6 +10,12 @@ from contractor_onboarding import require_csrf
 
 billing = Blueprint('billing', __name__)
 
+@billing.after_request
+def private_billing_response(response):
+    response.headers['Cache-Control']='no-store'
+    response.headers['X-Robots-Tag']='noindex, nofollow'
+    return response
+
 def as_dict(value):
     return value if isinstance(value,dict) else value.to_dict()
 
@@ -55,11 +61,24 @@ def stripe_configuration():
         abort(503,'Live payments are not enabled.')
     if not key.startswith(('sk_live_','rk_live_') if live else ('sk_test_','rk_test_')):
         abort(503,'Stripe mode and credentials are not configured.')
+    if not os.environ.get('STRIPE_WEBHOOK_SECRET','').startswith('whsec_'):
+        abort(503,'Stripe payment confirmation is not configured.')
     origin = os.environ.get('PUBLIC_SITE_URL','').rstrip('/')
     parts = urlsplit(origin)
     if parts.scheme != 'https' or not parts.netloc or parts.path or parts.query or parts.fragment or parts.username:
         abort(503,'Configure an HTTPS public site origin.')
     return key,origin
+
+
+def payment_readiness():
+    """Configuration readiness only; never claim an API/account verification."""
+    from werkzeug.exceptions import HTTPException
+    try:
+        stripe_configuration()
+        ready = payment_activation() is not None
+    except HTTPException:
+        ready = False
+    return {'ready': ready, 'test_mode': os.environ.get('STRIPE_MODE','test') == 'test'}
 
 
 def create_checkout(*,api_key,idempotency_key,**params):
@@ -113,8 +132,10 @@ def overview(contractor):
     history={}
     for row in CheckoutQuoteHistory.query.filter_by(contractor_id=contractor.id).order_by(CheckoutQuoteHistory.id.desc()).limit(200).all():
         history.setdefault(row.payment_id,[]).append(row)
+    readiness=payment_readiness()
     return render_template('billing.html',payments=payments,offers=offers,quote_history=history,
-        enabled=os.environ.get('PAYMENTS_ENABLED','').lower()=='true' and activation is not None,
+        enabled=readiness['ready'],test_mode=readiness['test_mode'],
+        current_mode=os.environ.get('STRIPE_MODE','test'),
         reconciliation_enabled=os.environ.get('CHECKOUT_RECONCILIATION_ENABLED','').lower()=='true')
 
 

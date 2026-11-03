@@ -91,3 +91,15 @@ test('roofing service form works without JavaScript',async({browser,baseURL})=>{
     await expect(page.locator('body')).toContainText('Single-contractor lead');
   }finally{await context.close();}
 });
+
+test('contractor Stripe entry explains setup and preserves payment navigation',async ({page})=>{
+  await page.goto('/__ci/contractor');
+  await page.getByRole('link',{name:'Stripe payments and receipts',exact:true}).click();
+  await expect(page).toHaveURL(/\/contractor\/billing$/);
+  await expect(page.getByRole('heading',{name:'Pay for leads with Stripe',exact:true})).toBeVisible();
+  await expect(page.getByText('Payment setup in progress',{exact:true})).toBeVisible();
+  await page.getByRole('link',{name:'View payment history',exact:true}).click();
+  await expect(page).toHaveURL(/#payment-history$/);
+  await expect(page.getByRole('heading',{name:'Payment history',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Resume Stripe checkout',exact:true})).toHaveCount(0);
+});

@@ -11,7 +11,7 @@ from billing import offer_contact_available
 
 class PaidContactTests(unittest.TestCase):
     def setUp(self):
-        self.env=patch.dict(os.environ,{'PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z','STRIPE_MODE':'test','PAYMENTS_ENABLED':'false'})
+        self.env=patch.dict(os.environ,{'STRIPE_WEBHOOK_SECRET':'whsec_synthetic','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z','STRIPE_MODE':'test','PAYMENTS_ENABLED':'false'})
         self.env.start();self.ctx=app.app_context();self.ctx.push();db.drop_all();db.create_all();self.client=app.test_client()
         self.contractor=Contractor(company_name='Business',contact_name='Owner',email='owner@example.com',phone='6125550100',
             zip_codes='55401',service_type='Mold Remediation',active=True,verified=True,is_test=False,password_hash='synthetic-hash')

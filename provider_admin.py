@@ -15,7 +15,8 @@ def overview():
     email_testing, email_test_recipients = email_test_settings()
     providers=[{'name':name,'enabled':os.environ.get(flag,'').lower()=='true',
                 'missing':[key for key in keys if not os.environ.get(key)]} for name,(flag,keys) in PROVIDERS.items()]
-    return render_template('integrations.html',providers=providers,
+    from billing import payment_readiness
+    return render_template('integrations.html',providers=providers,stripe_readiness=payment_readiness(),
         email_testing=email_testing,email_test_recipients=email_test_recipients,
         deliveries=Delivery.query.order_by(Delivery.id.desc()).limit(100).all(),
         payments=Payment.query.order_by(Payment.id.desc()).limit(100).all(),

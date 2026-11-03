@@ -12,7 +12,7 @@ from contractor_session_security import create_contractor_session_data
 
 class MinnesotaFlows(unittest.TestCase):
     def setUp(self):
-        self.env = patch.dict(os.environ, {'ADMIN_PASSWORD_HASH': generate_password_hash('administrator-test-password'), 'CONTRACTOR_LOGIN_LOCK_SECRET': 's'*40, 'RESEND_API_KEY':'re_test', 'RESEND_FROM_EMAIL':'sender@example.com', 'TWILIO_ACCOUNT_SID':'ACtest', 'TWILIO_AUTH_TOKEN':'twilio_test', 'TWILIO_MESSAGING_SERVICE_SID':'MGtest', 'TWILIO_STATUS_WEBHOOK_URL':'https://example.com/webhooks/twilio/status'})
+        self.env = patch.dict(os.environ, {'STRIPE_WEBHOOK_SECRET':'whsec_synthetic', 'ADMIN_PASSWORD_HASH': generate_password_hash('administrator-test-password'), 'CONTRACTOR_LOGIN_LOCK_SECRET': 's'*40, 'RESEND_API_KEY':'re_test', 'RESEND_FROM_EMAIL':'sender@example.com', 'TWILIO_ACCOUNT_SID':'ACtest', 'TWILIO_AUTH_TOKEN':'twilio_test', 'TWILIO_MESSAGING_SERVICE_SID':'MGtest', 'TWILIO_STATUS_WEBHOOK_URL':'https://example.com/webhooks/twilio/status'})
         self.env.start()
         self.ctx = app.app_context(); self.ctx.push()
         db.drop_all(); db.create_all()
