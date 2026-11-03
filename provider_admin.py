@@ -16,7 +16,17 @@ def overview():
     providers=[{'name':name,'enabled':os.environ.get(flag,'').lower()=='true',
                 'missing':[key for key in keys if not os.environ.get(key)]} for name,(flag,keys) in PROVIDERS.items()]
     from billing import payment_readiness
+    from datetime import datetime
+    activation = os.environ.get('MATCHING_ACTIVATION_UTC','').strip()
+    try:
+        valid_activation = datetime.fromisoformat(activation.replace('Z','+00:00')).tzinfo is not None
+    except ValueError:
+        valid_activation = False
+    matching_status = {'enabled': os.environ.get('ENABLE_LIVE_MATCHING') == 'YES',
+        'activation': activation if valid_activation else None,
+        'restricted': email_testing, 'allowlist_valid': bool(email_test_recipients)}
     return render_template('integrations.html',providers=providers,stripe_readiness=payment_readiness(),
+        matching_status=matching_status,
         email_testing=email_testing,email_test_recipients=email_test_recipients,
         deliveries=Delivery.query.order_by(Delivery.id.desc()).limit(100).all(),
         payments=Payment.query.order_by(Payment.id.desc()).limit(100).all(),
