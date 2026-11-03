@@ -75,7 +75,7 @@ class LandingCompletionTests(unittest.TestCase):
     def test_all_thirty_admin_previews_require_auth_and_closed_states_have_no_form(self):
         for state in STATES:
             for slug in STATE_SERVICE_SLUGS:
-                self.assertEqual(self.client.get('/admin/national/preview/'+state+'/services/'+slug).status_code,403)
+                self.assertEqual(self.client.get('/admin/national/preview/'+state+'/services/'+slug).status_code,302)
         with patch.dict(os.environ,{'ADMIN_PASSWORD_HASH':'synthetic-test-only'}):
             from admin_session_security import current_password_fingerprint
             with self.client.session_transaction() as state:

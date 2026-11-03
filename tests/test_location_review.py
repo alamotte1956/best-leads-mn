@@ -87,7 +87,7 @@ class LocationReviewTests(unittest.TestCase):
         self.assertNotIn('PRIVATE CONSUMER',page.text)
         self.admin();self.review(lead.id)
         self.assertEqual(self.client.get(f'/admin/leads/{lead.id}/location').status_code,200)
-        self.client=app.test_client();self.assertEqual(self.client.get(f'/admin/leads/{lead.id}/location').status_code,403)
+        self.client=app.test_client();self.assertEqual(self.client.get(f'/admin/leads/{lead.id}/location').status_code,302)
 
     def test_consumer_can_cancel_held_request_without_waiting_for_review(self):
         self.submit(base_url='http://localhost');lead=Lead.query.one()

@@ -61,7 +61,7 @@ class MinnesotaFlows(unittest.TestCase):
     def test_admin_password_change_blocks_owner_report(self):
         self.admin()
         os.environ['ADMIN_PASSWORD_HASH'] = generate_password_hash('changed-administrator-password')
-        self.assertEqual(self.client.get('/admin/owner-command-center').status_code, 403)
+        self.assertEqual(self.client.get('/admin/owner-command-center').status_code, 302)
     def test_accepted_offer_contact_and_pending_privacy(self):
         self.contractor_session()
         lead = Lead(homeowner_name='Private Homeowner', phone='6125550199', zip_code='55401', service_needed='Mold Remediation')
@@ -302,7 +302,7 @@ class MinnesotaFlows(unittest.TestCase):
     def test_lead_controls_require_admin_and_csrf(self):
         lead=Lead(homeowner_name='Homeowner',phone='6125550199',zip_code='55401',service_needed='Mold Remediation')
         db.session.add(lead);db.session.commit()
-        self.assertEqual(self.client.get(f'/admin/leads/{lead.id}').status_code,403)
+        self.assertEqual(self.client.get(f'/admin/leads/{lead.id}').status_code,302)
         self.admin()
         self.assertEqual(self.client.post(f'/admin/leads/{lead.id}/status',data={'status':'Closed'}).status_code,400)
         self.assertEqual(self.client.post(f'/admin/leads/{lead.id}/status',data={'_csrf':'csrf-test','status':'New'}).status_code,400)
@@ -345,7 +345,7 @@ class MinnesotaFlows(unittest.TestCase):
     def test_review_requires_admin_csrf_and_evidence(self):
         from app import CredentialReview
         path=f'/admin/contractors/{self.contractor.id}/verification'
-        self.assertEqual(self.client.get(path).status_code,403)
+        self.assertEqual(self.client.get(path).status_code,302)
         self.admin()
         self.assertEqual(self.client.post(path,data={'decision':'approved'}).status_code,400)
         self.assertEqual(self.client.post(path,data={'_csrf':'csrf-test','decision':'approved','notes':'Missing evidence'}).status_code,400)

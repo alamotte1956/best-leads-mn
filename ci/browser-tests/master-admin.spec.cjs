@@ -1,0 +1,20 @@
+const {test,expect}=require('@playwright/test');
+test('master owner signs in once and opens finance pricing and closed-state previews',async({page})=>{
+  await page.goto('/admin/finance?mode=test');
+  await expect(page).toHaveURL(/\/admin\/login\?next=/);
+  await page.getByLabel('Administrator email',{exact:true}).fill('owner@example.com');
+  await page.getByLabel('Administrator Password',{exact:true}).fill('synthetic-ci-admin-password');
+  await page.getByRole('button',{name:'Sign In',exact:true}).click();
+  await expect(page).toHaveURL(/\/admin\/finance\?mode=test$/);
+  await page.getByRole('link',{name:'Master admin · All administration sections',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Master administration',exact:true})).toBeVisible();
+  await expect(page.getByText('owner@example.com',{exact:false})).toHaveCount(2);
+  await page.getByRole('link',{name:'Pricing evidence and imports',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Daily market pricing',exact:true})).toBeVisible();
+  await page.goto('/admin/access');
+  await page.getByRole('link',{name:'Indiana — state, cities and services',exact:true}).click();
+  await expect(page).toHaveURL(/\/admin\/national\/preview\/indiana$/);
+  await expect(page.locator('body')).toContainText('Indiana');
+  await page.goto('/admin/access');await page.getByRole('button',{name:'Sign out of administration',exact:true}).click();
+  await page.goto('/admin/pricing');await expect(page).toHaveURL(/\/admin\/login\?next=/);
+});

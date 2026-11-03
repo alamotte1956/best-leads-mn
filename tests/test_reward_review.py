@@ -69,7 +69,7 @@ class RewardReviewTests(unittest.TestCase):
         self.assertEqual(self.submit(contractor_id=999,status='approved').status_code,303)
         row=RewardIdentityApplication.query.one();self.assertEqual(row.contractor_id,self.contractor.id);self.assertEqual(row.status,'pending')
         self.assertEqual(self.submit().status_code,400);self.assertEqual(self.review(row.id).status_code,403)
-        self.assertEqual(self.client.get('/admin/rewards').status_code,403)
+        self.assertEqual(self.client.get('/admin/rewards').status_code,302)
         self.admin();self.assertEqual(self.review(row.id,_csrf='wrong').status_code,400)
 
     def test_approval_requires_evidence_duplicate_check_account_control_and_expiry(self):

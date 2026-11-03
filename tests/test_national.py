@@ -18,7 +18,7 @@ class NationalTests(unittest.TestCase):
             for city in info[2]:
                 self.assertEqual(self.client.get('/usa/' + slug + '/' + city_slug(city)).status_code, expected)
     def test_security_boundaries(self):
-        self.assertEqual(self.client.get('/admin/national').status_code, 403)
+        self.assertEqual(self.client.get('/admin/national').status_code, 302)
         self.assertEqual(self.client.post('/contractor/rewards/spin', json={'prize': 7}).status_code, 503)
         self.assertEqual(self.client.get('/usa/minnesota/unknown').status_code, 404)
     def test_national_brand(self):

@@ -28,7 +28,7 @@
         h1 { margin-top: 0; font-size: 25px; }
         p { color: #64748b; line-height: 1.5; }
         label { display: block; margin: 20px 0 8px; font-weight: bold; }
-        input[type="password"] {
+        input[type="password"],input[type="email"] {
             width: 100%;
             padding: 13px;
             border: 1px solid #cbd5e1;
@@ -63,17 +63,20 @@
 {% include 'partials/brand_header.html' %}
     <main class="login-card">
         <h1>Administrator Login</h1>
-        <p>Restoration Contractors MN<br>Secure Administration</p>
+        <p>Restoration Contractors MN<br>Master administrator sign-in</p>
+        <p>One administrator sign-in gives access to all administration sections and private state previews. Sessions last one hour; sign in again after a password reset.</p>
 
         {% if error %}
         <div class="error" role="alert">{{ error }}</div>
         {% endif %}
 
         <form method="POST" action="{{ url_for('admin_login') }}">
+            <input type="hidden" name="next" value="{{ destination }}">
             <input type="hidden"
                    name="_csrf"
                    value="{{ csrf_token() }}">
 
+            {% if owner_email_required %}<label for="email">Administrator email</label><input type="email" id="email" name="email" autocomplete="username" required>{% endif %}
             <label for="password">Administrator Password</label>
             <input type="password"
                    id="password"

@@ -1,3 +1,4 @@
 <div role="banner" style="box-sizing:border-box;width:100%;padding:12px 24px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;">
     {% include 'partials/brand_logo.html' %}
+    {% if master_admin_active %}<p style="margin:8px 0 0"><a href="/admin/access">Master admin · All administration sections</a>{% if master_admin_email %} · {{ master_admin_email }}{% endif %}</p>{% endif %}
 </div>

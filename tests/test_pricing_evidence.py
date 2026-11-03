@@ -64,8 +64,8 @@ class PricingEvidenceTests(unittest.TestCase):
         self.assertIn('no-store',response.headers['Cache-Control'])
         with self.client.session_transaction() as s:s.clear()
         self.assertEqual(self.upload(raw).status_code,403)
-        self.assertEqual(self.client.get('/admin/pricing/template.csv').status_code,403)
-        self.assertEqual(self.client.get('/admin/pricing').status_code,403)
+        self.assertEqual(self.client.get('/admin/pricing/template.csv').status_code,302)
+        self.assertEqual(self.client.get('/admin/pricing').status_code,302)
     def test_invalid_values_rejected_without_echoing_uploaded_cells(self):
         bad_values=[('currency','CAD'),('contractor_limit','2'),('contractor_limit',''),('angi_cents','1.99'),
             ('thumbtack_cents','-1'),('angi_cents','2147483648'),('angi_cents','0'),('thumbtack_cents','NaN'),

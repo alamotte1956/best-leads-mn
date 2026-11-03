@@ -14,7 +14,9 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 fixture_directory=tempfile.TemporaryDirectory(prefix='rcusa-browser-fixture-')
 os.environ['DATABASE_URL']='sqlite:///'+str(Path(fixture_directory.name)/'browser.sqlite')
 os.environ['SECRET_KEY']='isolated-browser-checks-only'
-os.environ['ADMIN_PASSWORD_HASH']='isolated-browser-admin-checks'
+from werkzeug.security import generate_password_hash
+os.environ['ADMIN_PASSWORD_HASH']=generate_password_hash('synthetic-ci-admin-password')
+os.environ['ADMIN_OWNER_EMAIL']='owner@example.com'
 os.environ['CONTRACTOR_LOGIN_LOCK_SECRET']='isolated-browser-login-lock-secret-only-2026'
 os.environ['PAYMENTS_ACTIVATION_UTC']=''
 os.environ['EMAIL_TEST_ONLY']='false'
