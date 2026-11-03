@@ -1342,6 +1342,24 @@ def refresh_market_benchmarks_command():
     except RuntimeError as error:
         raise click.ClickException(str(error))
 
+
+@app.cli.command('import-market-benchmarks')
+@click.argument('evidence_file',type=click.File('rb'))
+@click.option('--authorized',is_flag=True,help='Confirm permitted source reuse and verified like-for-like lead fees.')
+def import_market_benchmarks_command(evidence_file,authorized):
+    """Import a bounded, normalized CSV from authorized source records."""
+    from pricing_evidence import MAX_BYTES,import_csv
+    from werkzeug.exceptions import HTTPException
+    if not authorized:
+        raise click.ClickException('Source permission and comparable lead fees must be confirmed with --authorized.')
+    try:
+        click.echo({'imported':import_csv(evidence_file.read(MAX_BYTES+1))})
+    except (ValueError,HTTPException):
+        raise click.ClickException('Evidence rejected. Check the admin CSV template, source references, current Central date, scope and immutable import IDs.') from None
+    except IntegrityError:
+        db.session.rollback()
+        raise click.ClickException('Concurrent import detected. Retry the same file; historical records remain unchanged.') from None
+
 @app.cli.command('deliver-notifications')
 def deliver_notifications_command():
     from communications import deliver_pending

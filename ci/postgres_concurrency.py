@@ -241,6 +241,30 @@ class PostgresConcurrencyTests(unittest.TestCase):
             self.assertEqual(sum(pool.map(consume,range(8))),1)
         db.session.expire_all();self.assertIsNotNone(AccessRecoveryToken.query.one().used_at)
 
+    def test_concurrent_evidence_imports_preserve_one_immutable_observation_and_type(self):
+        from market_pricing import import_benchmark_records
+        from app import MarketBenchmark,BenchmarkMatchType
+        observed=datetime.now(timezone.utc)-timedelta(seconds=1)
+        def import_one(index):
+            with app.app_context():
+                data=dict(state_code='MN',service_name='Mold Remediation',zip_code='55401',
+                    contractor_limit=3,observed_at=observed,angi_cents=10000+index,thumbtack_cents=8000,
+                    angi_reference='synthetic-angi',thumbtack_reference='synthetic-thumbtack',
+                    comparison_basis='comparable_contractor_lead_fee',import_key='synthetic-concurrent-evidence')
+                try:
+                    return import_benchmark_records([data])
+                except (ValueError,IntegrityError):
+                    db.session.rollback()
+                    return 0
+                finally:
+                    db.session.remove()
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            self.assertEqual(sum(pool.map(import_one,range(8))),1)
+        self.assertEqual(MarketBenchmark.query.count(),1)
+        self.assertEqual(BenchmarkMatchType.query.count(),1)
+        self.assertEqual(BenchmarkMatchType.query.one().contractor_limit,3)
+        self.assertEqual(BenchmarkMatchType.query.one().benchmark_id,MarketBenchmark.query.one().id)
+
     def test_all_additive_migrations_can_run_twice_in_isolated_schema(self):
         db.session.remove()
         with db.engine.connect().execution_options(isolation_level='AUTOCOMMIT') as connection:
