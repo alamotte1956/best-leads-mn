@@ -249,7 +249,7 @@ class ConsumerRequestTests(unittest.TestCase):
         offer=self.offer();self.owner()
         self.assertEqual(self.client.post('/request-status/stop-matching',data=self.stop_data()).status_code,303)
         self.contractor_session()
-        config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example',
+        config={'PAYMENTS_ENABLED':'true','STRIPE_MODE':'test','STRIPE_SECRET_KEY':'sk_test_example','STRIPE_WEBHOOK_SECRET':'whsec_synthetic',
                 'PUBLIC_SITE_URL':'https://example.com','PAYMENTS_ACTIVATION_UTC':'2020-01-01T00:00:00Z'}
         with patch.dict(os.environ,config),patch('billing.create_checkout') as create,patch('billing.retrieve_checkout') as retrieve:
             for action in ('quote','checkout'):

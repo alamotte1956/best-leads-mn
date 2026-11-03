@@ -56,7 +56,7 @@
 {% include 'partials/leadiq_demo.html' %}
 
 <h1>My Lead Offers</h1>
-<p><a href="/contractor/leads">Track accepted leads</a> · <a href="/contractor/settings">Manage services and coverage</a> · <a href="/contractor/notifications">Lead-alert choices</a> · <a href="/contractor/billing">Payments and receipts</a></p>
+<p><a href="/contractor/leads">Track accepted leads</a> · <a href="/contractor/settings">Manage services and coverage</a> · <a href="/contractor/notifications">Lead-alert choices</a> · <a href="/contractor/billing">Stripe payments and receipts</a></p>
 <p>Review each opportunity before accepting. Newly billable offers require acceptance and verified payment before homeowner contact access. Historical acceptance access is retained.</p>
 <nav aria-label="Filter lead offers" style="display:flex;gap:12px;flex-wrap:wrap;margin:20px 0">
 {% for status in ['all','pending','accepted','declined','expired','cancelled'] %}<button type="button" data-filter-offers="{{ status }}" aria-pressed="{{ 'true' if status == 'all' else 'false' }}">{{ status|capitalize }}{% if status != 'all' %} ({{ offers|selectattr('status','equalto',status)|list|length }}){% endif %}</button>{% endfor %}</nav>
@@ -103,7 +103,7 @@
                 Decline Lead
             </button>
         </form>
-        {% if offer.status == "accepted" and not offer.contact %}<p>Contact access requires a verified payment or order review. <a href="/contractor/billing">Open payments and receipts</a></p>{% endif %}{% if offer.contact %}<div><h3>Homeowner contact</h3><p>{{ offer.contact.name }} · {{ offer.contact.phone }}</p>{% if offer.contact.email %}<p>{{ offer.contact.email }}</p>{% endif %}<p>{{ offer.contact.description or '' }}</p><p><a href="{{ url_for('lead_progress.detail',offer_id=offer.id) }}">Track this lead’s follow-up</a></p></div>{% endif %}
+        {% if offer.status == "accepted" and not offer.contact %}<p>Contact access requires a verified payment or order review. <a href="/contractor/billing">Review price and pay with Stripe</a></p>{% endif %}{% if offer.contact %}<div><h3>Homeowner contact</h3><p>{{ offer.contact.name }} · {{ offer.contact.phone }}</p>{% if offer.contact.email %}<p>{{ offer.contact.email }}</p>{% endif %}<p>{{ offer.contact.description or '' }}</p><p><a href="{{ url_for('lead_progress.detail',offer_id=offer.id) }}">Track this lead’s follow-up</a></p></div>{% endif %}
     </section>
     {% else %}
     <p>You have no lead offers at this time.</p>
