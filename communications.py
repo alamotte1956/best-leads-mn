@@ -131,6 +131,9 @@ def deliver_pending(limit=20):
             db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='pending').values(status='cancelled'))
             db.session.commit();result['cancelled'] += 1
             continue
+        if account_event and account_event.status == 'approved':
+            from contractor_account_notifications import NOTICES
+            row.subject, row.body = NOTICES['approved']
         consumer_event = ConsumerRequestUpdate.query.filter_by(delivery_id=row.id).first()
         if consumer_event and not request_update_current(row, consumer_event):
             db.session.execute(update(Delivery).where(Delivery.id==row.id,Delivery.status=='pending').values(status='cancelled'))

@@ -6,8 +6,9 @@ NOTICES = {
     'approved': (
         'Your contractor account is approved',
         'Your Restoration Contractors MN account has been approved. '
-        'If you already have a password, use the contractor sign-in page at RestorationContractorsMN.com. '
-        'Otherwise, our team will provide your private, time-limited password setup link. '
+        'Create or reset your own password at https://www.restorationcontractorsmn.com/contractor/forgot-password. '
+        'A private, single-use link will be emailed to the address on your approved account. '
+        'If you already have a password, sign in at https://www.restorationcontractorsmn.com/contractor/login. '
         'Approval does not guarantee lead availability. No charge has been made.'),
     'deactivated': (
         'Your contractor account is inactive',

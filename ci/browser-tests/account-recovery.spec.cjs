@@ -4,7 +4,9 @@ test('contractor can recover a password and homeowner can recover private reques
   const key=randomUUID().replace(/-/g,'');
   const created=await page.request.post('/__ci/recovery-fixture/'+key);
   expect(created.status()).toBe(200);const emails=await created.json();
-  await page.goto('/contractor/login');await page.getByRole('link',{name:'Forgot password?'}).click();
+  await page.goto('/contractor/login');
+  await expect(page.getByRole('link',{name:'Create your password',exact:true})).toBeVisible();
+  await page.getByRole('link',{name:'Forgot password?'}).click();
   await page.getByLabel('Email address',{exact:true}).fill(emails.contractor);
   await page.getByRole('button',{name:'Email reset link',exact:true}).click();
   await expect(page.locator('body')).toContainText('If an eligible account or request matches');
@@ -26,4 +28,9 @@ test('contractor can recover a password and homeowner can recover private reques
   await page.getByRole('button',{name:'Open my request status',exact:true}).click();
   await expect(page).toHaveURL(/\/request-status$/);await expect(page.locator('body')).toContainText('Mold Remediation');
   expect((await page.request.get(access.path)).status()).toBe(400);
+  await page.goto('/__ci/admin');await page.goto('/admin');
+  await expect(page.locator('form[action*="password-setup"]')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Create password setup link',exact:true})).toHaveCount(0);
+  expect((await page.request.post('/admin/contractors/1/password-setup')).status()).toBe(404);
+  expect((await page.request.get('/contractor/password-setup/retired-demo')).status()).toBe(410);
 });
