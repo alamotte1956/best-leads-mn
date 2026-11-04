@@ -78,6 +78,17 @@ class AdminRecoveryTests(unittest.TestCase):
         for changes in ({'ADMIN_OWNER_EMAIL':''},{'ADMIN_PASSWORD_HASH':''},{'EMAIL_TEST_RECIPIENTS':'other@example.com'}):
             with patch.dict(os.environ,changes):
                 self.assertEqual(self.issue().status_code,200);self.assertEqual(Token.query.count(),0)
+    def test_worker_sends_without_administrator_environment_credentials(self):
+        self.issue();link=self.link()
+        with patch.dict(os.environ,{'ADMIN_OWNER_EMAIL':'','ADMIN_PASSWORD_HASH':''}), patch('communications.resend_email',return_value='synthetic-worker-provider') as send:
+            result=deliver_pending();self.assertEqual(result['sent'],1)
+            self.assertIn(link,send.call_args.args[0].body)
+        self.save(link)
+        self.issue();new=self.link();self.save(new)
+        with patch.dict(os.environ,{'ADMIN_OWNER_EMAIL':'','ADMIN_PASSWORD_HASH':''}), patch('communications.resend_email',return_value='synthetic-confirmation'):
+            # Used reset links are cancelled even without web-only secrets.
+            self.assertFalse(__import__('admin_recovery').admin_recovery_notice_current(Delivery.query.filter(Delivery.event_key.like('admin-recovery:%')).first()))
+
     def test_rate_limit_is_persistent_and_no_reset_by_get(self):
         for _ in range(5):self.assertEqual(self.issue().status_code,200)
         self.assertEqual(Token.query.count(),3)
