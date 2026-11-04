@@ -65,6 +65,9 @@ ConsumerRequestUpdate = define_consumer_updates(db)
 from account_recovery import define_recovery, recovery
 AccessRecoveryToken, AccessRecoveryAttempt = define_recovery(db)
 app.register_blueprint(recovery)
+from admin_recovery import define_admin_recovery, admin_recovery
+AdminCredential, AdminRecoveryToken = define_admin_recovery(db)
+app.register_blueprint(admin_recovery)
 from state_notices import state_notices
 app.register_blueprint(state_notices)
 from lead_lifecycle import define_lead_status_events
