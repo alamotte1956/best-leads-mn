@@ -78,7 +78,11 @@ def issue(email):
     if not row:
         row = AdminCredential(id=1, configuration_binding=configuration_binding(), password_hash=effective_password_hash())
         db.session.add(row); db.session.flush()
-    db.session.query(AdminCredential).filter_by(id=1).populate_existing().with_for_update().one()
+    row = db.session.query(AdminCredential).filter_by(id=1).populate_existing().with_for_update().one()
+    if not hmac.compare_digest(row.configuration_binding, configuration_binding()):
+        row.password_hash = effective_password_hash()
+        row.configuration_binding = configuration_binding()
+        db.session.flush()
     now = datetime.now(timezone.utc)
     db.session.execute(update(Token).where(Token.used_at.is_(None)).values(used_at=now))
     raw = secrets.token_urlsafe(32)
@@ -157,8 +161,17 @@ def reset(token):
 
 def admin_recovery_notice_current(delivery):
     if not delivery.event_key.startswith('admin-recovery:'): return True
-    from app import db, AdminRecoveryToken as Token
+    from app import db, AdminCredential, AdminRecoveryToken as Token
     identifier = delivery.event_key.partition(':')[2]
     if not identifier.isdigit(): return False
     token = db.session.get(Token, int(identifier), populate_existing=True)
-    return bool(current_token(token) and token.delivery_id == delivery.id and token.recipient == delivery.recipient.strip().lower())
+    if not token or token.used_at: return False
+    expiry = token.expires_at
+    if expiry.tzinfo is None: expiry = expiry.replace(tzinfo=timezone.utc)
+    credential = db.session.get(AdminCredential, 1, populate_existing=True)
+    if not credential: return False
+    # Delivery needs no administrator environment credential. The web route still
+    # checks the live owner/bootstrap configuration before accepting any link.
+    binding = hashlib.sha256((credential.configuration_binding + ':' + credential.password_hash).encode()).hexdigest()
+    return bool(expiry > datetime.now(timezone.utc) and hmac.compare_digest(token.subject_binding, binding)
+        and token.delivery_id == delivery.id and token.recipient == delivery.recipient.strip().lower())
