@@ -22,7 +22,8 @@ def admin_auth_configured():
 
 def verify_admin_password(password):
     """Verify a supplied password against the configured hash."""
-    stored_hash = os.environ.get("ADMIN_PASSWORD_HASH", "").strip()
+    from admin_recovery import effective_password_hash
+    stored_hash = effective_password_hash()
 
     if not stored_hash:
         return False

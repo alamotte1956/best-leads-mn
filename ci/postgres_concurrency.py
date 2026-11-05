@@ -349,6 +349,31 @@ class PostgresConcurrencyTests(unittest.TestCase):
             from apply_quickbooks_schema import main
             main();main();self.assertEqual(FinanceEntry.query.count(),1);self.assertEqual(QuickBooksExport.query.count(),1)
 
+    def test_admin_recovery_has_one_winner_under_concurrent_password_resets(self):
+        import re
+        from unittest.mock import patch
+        from werkzeug.security import generate_password_hash
+        from app import AdminRecoveryToken, Delivery
+        from admin_auth import verify_admin_password
+        with patch.dict(os.environ, {'ADMIN_OWNER_EMAIL':'owner@example.com',
+                'ADMIN_PASSWORD_HASH':generate_password_hash('synthetic-original-password'), 'EMAIL_TEST_ONLY':'false'}):
+            browser=app.test_client()
+            with browser.session_transaction() as state:state['_csrf']='isolated-admin-recovery'
+            response=browser.post('/admin/forgot-password',data={'_csrf':'isolated-admin-recovery','email':'owner@example.com'})
+            self.assertEqual(response.status_code,303)
+            row=AdminRecoveryToken.query.one()
+            path=re.search(r'https://www.restorationcontractorsmn.com(\S+)',db.session.get(Delivery,row.delivery_id).body).group(1)
+            db.session.remove()
+            def consume(_):
+                with app.test_client() as separate:
+                    with separate.session_transaction() as state:state['_csrf']='isolated-admin-recovery'
+                    return separate.post(path,data={'_csrf':'isolated-admin-recovery',
+                        'password':'synthetic-new-password','confirm_password':'synthetic-new-password'}).status_code
+            with ThreadPoolExecutor(max_workers=8) as pool:results=list(pool.map(consume,range(8)))
+            self.assertEqual(results.count(303),1,results);self.assertEqual(results.count(400),7,results)
+            db.session.expire_all();self.assertIsNotNone(AdminRecoveryToken.query.one().used_at)
+            self.assertTrue(verify_admin_password('synthetic-new-password'))
+
     def test_all_additive_migrations_can_run_twice_in_isolated_schema(self):
         db.session.remove()
         with db.engine.connect().execution_options(isolation_level='AUTOCOMMIT') as connection:

@@ -205,6 +205,8 @@ def open_request(token): return _use_link(token,'consumer')
 
 
 def recovery_notice_current(delivery):
+    from admin_recovery import admin_recovery_notice_current
+    if not admin_recovery_notice_current(delivery): return False
     if not delivery.event_key.startswith('recovery:'): return True
     from app import db, AccessRecoveryToken as Token
     identifier=delivery.event_key.partition(':')[2]
